@@ -1,6 +1,5 @@
 (function(){
 const D='web/es.html';
-const CP='web/otros/Archivos/HTML/centralPage.html';
 const CC_MAX=5;
 let c='';
 let bg={};
@@ -172,23 +171,12 @@ aBG();
 const h=window.location.hash;
 const{p:s,a:t}=pH(h);
 const f=s||D;
-window.history.replaceState({p:CP,i:0,exit:!0},'',`#${D}`);
-for(let i=1;i<=5;i++){
-await new Promise(r=>setTimeout(r,0));
-window.history.pushState({p:D,i:i},'',`#${D}`)
-}
-if(f!==D){
+window.history.replaceState({p:f},'',`#${f}`);
 await lC(f,!1,t);
-await new Promise(r=>setTimeout(r,0));
-window.history.pushState({p:f,a:t},'',`#${f}${t?'#'+t:''}`)
-}else{
-await lC(D,!1)
-}
 await lX();
 window.addEventListener('hashchange',()=>{hH()});
 window.addEventListener('popstate',(e)=>{
-if(e.state){
-if(e.state.exit){lC(CP,false);return}
+if(e.state&&e.state.p){
 const a=e.state.a||'';
 if(e.state.p!==c){lC(e.state.p,!1,a)}
 else if(a){const t=document.getElementById(a);if(t)t.scrollIntoView({behavior:'smooth',block:'start'})}
@@ -222,7 +210,7 @@ const spaExt=/\.(md|html)$/i;
 if(!spaExt.test(h))return;
 e.preventDefault();
 const url=new URL(a.href);
-let u=url.pathname.startsWith('/')?url.pathname.slice(1):url.pathname;
+const p=url.pathname;const w=p.indexOf('web/');const u=w!==-1?p.slice(w):p.slice(1);
 window.scrollTo({top:0,behavior:'smooth'});
 lC(u)
 });
