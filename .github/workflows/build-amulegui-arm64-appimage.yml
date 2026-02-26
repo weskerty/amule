@@ -1,0 +1,157 @@
+name: Build amuleGUI arm64 AppImage
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 1 */3 *'
+  push:
+    paths:
+      - 'README.md'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04-arm
+
+    steps:
+      - name: Clonar amule
+        run: git clone --depth=1 https://github.com/amule-project/amule.git amule-src
+
+      - name: Obtener hash commit
+        id: hash
+        run: |
+          cd amule-src
+          echo "short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Verificar si ya existe release
+        id: check
+        run: |
+          TAG="${{ steps.hash.outputs.short }}"
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/${{ github.repository }}/releases/tags/$TAG")
+          echo "exists=$([ $STATUS = '200' ] && echo true || echo false)" >> $GITHUB_OUTPUT
+
+      - name: Instalar dependencias
+        if: steps.check.outputs.exists == 'false'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential autoconf automake libtool pkg-config \
+            gettext autopoint binutils-dev \
+            libcrypto++-dev \
+            libboost-dev libboost-system-dev libboost-thread-dev \
+            zlib1g-dev libpng-dev wget bzip2 \
+            libgtk-3-dev libglib2.0-dev libcairo2-dev \
+            libpango1.0-dev libgdk-pixbuf2.0-dev
+
+      - name: Cache wxWidgets
+        if: steps.check.outputs.exists == 'false'
+        id: cache-wx
+        uses: actions/cache@v4
+        with:
+          path: /opt/wx-gui
+          key: wx-3.2.6-arm64-gui-nodebug
+
+      - name: Compilar wxWidgets
+        if: steps.check.outputs.exists == 'false' && steps.cache-wx.outputs.cache-hit != 'true'
+        run: |
+          wget -q https://github.com/wxWidgets/wxWidgets/releases/download/v3.2.6/wxWidgets-3.2.6.tar.bz2
+          tar -xjf wxWidgets-3.2.6.tar.bz2
+          cd wxWidgets-3.2.6
+          ./configure \
+            --prefix=/opt/wx-gui \
+            --disable-shared \
+            --with-gtk=3 \
+            --disable-debug \
+            --enable-unicode \
+            --with-zlib=sys \
+            --with-libpng=sys
+          make -j"$(nproc)"
+          sudo make install
+
+      - name: autogen
+        if: steps.check.outputs.exists == 'false'
+        run: cd amule-src && ./autogen.sh
+
+      - name: configure
+        if: steps.check.outputs.exists == 'false'
+        working-directory: amule-src
+        run: |
+          ./configure \
+            --disable-debug --enable-optimize --disable-monolithic \
+            --enable-amule-gui \
+            --disable-amule-daemon --disable-amulecmd --disable-webserver \
+            --disable-cas --disable-alc --disable-alcc --disable-wxcas \
+            --disable-ed2k --disable-fileview --disable-geoip --disable-upnp \
+            --with-wx-config=/opt/wx-gui/bin/wx-config \
+            CXXFLAGS="-O2"
+
+      - name: Build libs
+        if: steps.check.outputs.exists == 'false'
+        run: make -j"$(nproc)" -C amule-src/src/libs
+
+      - name: Build amuleGUI
+        if: steps.check.outputs.exists == 'false'
+        run: |
+          make -j"$(nproc)" -C amule-src/src amulegui
+          strip amule-src/src/amulegui
+
+      - name: Descargar linuxdeploy
+        if: steps.check.outputs.exists == 'false'
+        run: |
+          wget -q https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-aarch64.AppImage
+          chmod +x linuxdeploy-aarch64.AppImage
+
+      - name: Crear AppDir
+        if: steps.check.outputs.exists == 'false'
+        run: |
+          mkdir -p AppDir/usr/bin AppDir/usr/share/applications \
+                   AppDir/usr/share/icons/hicolor/256x256/apps
+          cp amule-src/src/amulegui AppDir/usr/bin/amulegui
+          printf '[Desktop Entry]\nName=aMule GUI\nExec=amulegui\nIcon=amulegui\nType=Application\nCategories=Network;\n' \
+            > AppDir/usr/share/applications/amulegui.desktop
+          touch AppDir/usr/share/icons/hicolor/256x256/apps/amulegui.png
+
+      - name: Empaquetar AppImage
+        if: steps.check.outputs.exists == 'false'
+        env:
+          ARCH: aarch64
+        run: |
+          ./linuxdeploy-aarch64.AppImage --appimage-extract > /dev/null
+          ARCH=aarch64 ./squashfs-root/AppRun \
+            --appdir AppDir \
+            --executable AppDir/usr/bin/amulegui \
+            --desktop-file AppDir/usr/share/applications/amulegui.desktop \
+            --icon-file AppDir/usr/share/icons/hicolor/256x256/apps/amulegui.png \
+            --output appimage
+          find . -maxdepth 1 -name "*.AppImage" ! -name "linuxdeploy*" \
+            -exec mv {} amulegui-arm64.AppImage \;
+
+      - name: Verificar AppImage
+        if: steps.check.outputs.exists == 'false'
+        run: file amulegui-arm64.AppImage && ls -lh amulegui-arm64.AppImage
+
+      - uses: actions/upload-artifact@v4
+        if: steps.check.outputs.exists == 'false'
+        with:
+          name: amulegui-arm64-appimage
+          path: amulegui-arm64.AppImage
+
+      - name: Publicar release
+        if: steps.check.outputs.exists == 'false'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.hash.outputs.short }}
+          name: AutoUpdate
+          body: |
+            # Read [Tutorial](https://github.com/weskerty/aMuleD.bin?tab=readme-ov-file#install) to Install Easy.
+
+            <ins>If Your Only Download  .AppImage Here;</ins>
+            Automate Install & AutoBoot ❌
+            Automated Update ❌
+            Automate Config ❌
+          fail_on_unmatched_files: false
+          files: amulegui-arm64.AppImage
