@@ -3,7 +3,7 @@ Description=aMuleD.bin AppImage&Web
 After=network-online.target
 Wants=network-online.target
 StartLimitIntervalSec=300
-StartLimitBurst=5
+StartLimitBurst=10
 
 [Service]
 Type=simple
@@ -16,11 +16,11 @@ Environment=VOLTA_HOME=/opt/aMuleD.bin/home/.volta
 Environment=PATH=/opt/aMuleD.bin/home/.volta/bin:/usr/local/bin:/usr/bin:/bin
 Environment=NPM_CONFIG_PREFIX=/opt/aMuleD.bin/repo/node_modules/.bin
 
-ExecStart=/opt/aMuleD.bin/home/.volta/bin/node MuLy/server.js
+ExecStart=/opt/aMuleD.bin/repo/START.sh
 
 Restart=always
-RestartSec=10
-#RuntimeMaxSec=1d
+RestartSec=30
+RuntimeMaxSec=30d
 KillMode=control-group
 
 NoNewPrivileges=true
