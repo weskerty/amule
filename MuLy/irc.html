@@ -1,0 +1,407 @@
+<style>
+.irc-root{display:flex;flex-direction:column;gap:10px}
+
+.irc-subtabs{display:flex;gap:6px}
+.irc-stab{flex:1;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:10px;color:rgba(255,255,255,0.45);cursor:pointer;font-family:inherit;font-size:.75rem;padding:8px 6px;transition:all .15s}
+.irc-stab.active{background:rgba(255,255,255,0.13);color:#fff;border-color:rgba(255,255,255,0.22)}
+
+.irc-section{display:none}
+.irc-section.active{display:flex;flex-direction:column;gap:10px}
+
+.irc-topbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.irc-dot{font-size:.7rem}
+.irc-dot.on{color:#80ffb0}
+.irc-dot.off{color:#ff8080}
+
+.irc-channels{display:flex;gap:6px;flex-wrap:nowrap;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
+.irc-channels::-webkit-scrollbar{display:none}
+.irc-chip{background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);border-radius:20px;color:rgba(255,255,255,0.7);cursor:pointer;font-family:inherit;font-size:.68rem;padding:4px 12px;white-space:nowrap;transition:all .15s;flex-shrink:0}
+.irc-chip:hover{background:rgba(255,255,255,0.15);color:#fff}
+.irc-chip.active{background:rgba(100,180,255,0.2);border-color:rgba(100,180,255,0.5);color:#aaddff}
+.irc-chip.unread{border-color:rgba(120,255,160,0.5);color:#80ffb0}
+.irc-chip-count{font-size:.6rem;opacity:.6;margin-left:3px}
+
+.irc-suggest{display:flex;gap:6px;flex-wrap:nowrap;overflow-x:auto;padding:2px 0 4px;scrollbar-width:none}
+.irc-suggest::-webkit-scrollbar{display:none}
+.irc-sug-chip{background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.09);border-radius:20px;color:rgba(255,255,255,0.5);cursor:pointer;font-family:inherit;font-size:.65rem;padding:3px 10px;white-space:nowrap;transition:all .15s;flex-shrink:0}
+.irc-sug-chip:hover{background:rgba(255,255,255,0.12);color:#fff}
+
+.irc-chat{height:320px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;padding:4px 0;scroll-behavior:smooth}
+.irc-bubble-row{display:flex;flex-direction:column;max-width:78%}
+.irc-bubble-row.mine{align-self:flex-end;align-items:flex-end}
+.irc-bubble-row.theirs{align-self:flex-start;align-items:flex-start}
+.irc-bubble-meta{font-size:.6rem;opacity:.4;margin-bottom:2px;padding:0 4px}
+.irc-bubble{padding:7px 12px;border-radius:16px;font-size:.78rem;line-height:1.45;word-break:break-word;max-width:100%}
+.irc-bubble-row.mine .irc-bubble{background:rgba(100,160,255,0.25);border-bottom-right-radius:4px}
+.irc-bubble-row.theirs .irc-bubble{background:rgba(255,255,255,0.08);border-bottom-left-radius:4px}
+.irc-bubble-row.sys{align-self:center;max-width:90%}
+.irc-bubble-row.sys .irc-bubble{background:none;font-size:.65rem;opacity:.35;font-style:italic;text-align:center;padding:2px 8px}
+.irc-bubble-row.notice .irc-bubble{background:rgba(255,200,80,0.1);color:#ffdd88;font-size:.7rem}
+
+.irc-topic-bar{font-size:.68rem;opacity:.35;text-align:center;padding:2px 0}
+
+.irc-input-area{display:flex;gap:8px;align-items:center}
+.irc-input-area input{flex:1}
+.irc-send-btn{background:rgba(100,160,255,0.25);border:1px solid rgba(100,160,255,0.35);border-radius:10px;color:#aaddff;cursor:pointer;font-size:.9rem;padding:7px 12px;transition:background .15s;white-space:nowrap}
+.irc-send-btn:hover{background:rgba(100,160,255,0.4)}
+
+.irc-users-bar{font-size:.65rem;opacity:.35;text-align:right;padding:2px 0}
+
+.irc-cfg-row{display:flex;flex-direction:column;gap:8px}
+.irc-cfg-label{font-size:.7rem;opacity:.5;margin-bottom:2px}
+.irc-srv-entry{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:.75rem;padding:7px 0;border-bottom:1px solid rgba(255,255,255,0.06)}
+.irc-srv-entry:last-child{border-bottom:none}
+.irc-add-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px}
+.irc-add-grid .irc-full{grid-column:1/-1}
+</style>
+
+<div class="irc-root">
+
+  <div class="ml-card">
+    <div class="irc-subtabs">
+      <button class="irc-stab active" id="irc-stab-chat" onclick="ircTab('chat')">💬 Chat</button>
+      <button class="irc-stab" id="irc-stab-cfg" onclick="ircTab('cfg')">⚙️ Ajustes</button>
+    </div>
+  </div>
+
+  <!-- CHAT -->
+  <div class="irc-section active" id="irc-sec-chat">
+
+    <div class="ml-card">
+      <div class="irc-topbar">
+        <select class="ml-select" id="irc-srv-sel" style="flex:1;min-width:140px"></select>
+        <button class="ml-btn-sm" id="irc-conn-btn" onclick="ircToggleConn()">🔗 Conectar</button>
+        <span class="irc-dot off" id="irc-dot">●</span>
+      </div>
+    </div>
+
+    <div class="ml-card">
+      <div id="irc-suggest-wrap" style="display:none">
+        <div style="font-size:.65rem;opacity:.35;margin-bottom:4px">Salas disponibles</div>
+        <div class="irc-suggest" id="irc-suggest"></div>
+      </div>
+      <div class="irc-channels" id="irc-chips">
+        <span style="font-size:.68rem;opacity:.3">Sin canales abiertos</span>
+      </div>
+    </div>
+
+    <div class="ml-card">
+      <div class="irc-topic-bar" id="irc-topic"></div>
+      <div class="irc-chat" id="irc-chat">
+        <div class="irc-bubble-row sys"><div class="irc-bubble">Conecta a un servidor para empezar</div></div>
+      </div>
+      <div class="irc-users-bar" id="irc-users"></div>
+      <div class="irc-input-area" style="margin-top:8px">
+        <input class="ml-search-input" id="irc-input" placeholder="Mensaje..." enterkeyhint="send" autocomplete="off" autocorrect="off" spellcheck="false">
+        <button class="irc-send-btn" onclick="ircSendMsg()">➤</button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- AJUSTES -->
+  <div class="irc-section" id="irc-sec-cfg">
+
+    <div class="ml-card">
+      <div class="irc-cfg-label">Nick</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <input class="ml-search-input" id="irc-nick-main" placeholder="Nick principal" style="flex:1;min-width:120px">
+        <input class="ml-search-input" id="irc-nick-alt" placeholder="Nick alternativo" style="flex:1;min-width:120px">
+      </div>
+      <div style="margin-top:8px">
+        <button class="ml-btn-sm" onclick="ircSaveNick()">💾 Guardar nick</button>
+      </div>
+    </div>
+
+    <div class="ml-card">
+      <div class="irc-cfg-label" style="margin-bottom:8px">Servidores</div>
+      <div id="irc-srv-list"></div>
+      <div style="margin-top:10px;font-size:.7rem;opacity:.5;margin-bottom:6px">Agregar servidor</div>
+      <div class="irc-add-grid">
+        <input class="ml-search-input irc-full" id="irc-add-host" placeholder="Host">
+        <input class="ml-search-input" id="irc-add-port" placeholder="Puerto" type="number">
+        <input class="ml-search-input" id="irc-add-name" placeholder="Nombre">
+        <input class="ml-search-input" id="irc-add-pass" placeholder="Password (opc.)" type="password">
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;margin-top:8px;font-size:.72rem;flex-wrap:wrap">
+        <label style="display:flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" id="irc-add-tls"> TLS (6697)</label>
+        <button class="ml-btn-sm" onclick="ircAddServer()">+ Agregar</button>
+      </div>
+    </div>
+
+    <div class="ml-card">
+      <div class="irc-cfg-label" style="margin-bottom:8px">Historial</div>
+      <button class="ml-btn-sm ml-btn-danger" onclick="ircClearHist()">🗑️ Borrar historial actual</button>
+    </div>
+
+  </div>
+
+</div>
+
+<script>
+const IRC_DEFS = [
+  { name:'eMule IRC', host:'ircchat.emule-project.net', port:6667, tls:false },
+  { name:'MindForge', host:'irc.mindforge.org', port:6667, tls:false },
+];
+const IRC_AUTO_CHANNEL = '#eMule-Spanish';
+const IRC_SK='irc_srv', IRC_NK='irc_nick', IRC_NK2='irc_nick2', IRC_HK='irc_h_';
+const IRC_HIST_MAX = 100;
+
+let ircWs=null, ircCurCh=null, ircTabs={}, ircMyNick='', ircCurHost='';
+
+function ircCustom(){ try{return JSON.parse(localStorage.getItem(IRC_SK)||'[]')}catch(_){return[]} }
+function ircSaveCustom(a){ localStorage.setItem(IRC_SK,JSON.stringify(a)) }
+function ircAllSrvs(){ return [...IRC_DEFS,...ircCustom()] }
+
+function ircHK(ch){ return IRC_HK+ircCurHost+'_'+ch }
+function ircLoadH(ch){ try{return JSON.parse(localStorage.getItem(ircHK(ch))||'[]')}catch(_){return[]} }
+function ircSaveH(ch,msgs){ localStorage.setItem(ircHK(ch),JSON.stringify(msgs.slice(-IRC_HIST_MAX))) }
+function ircPushH(ch,msg){ const h=ircLoadH(ch); h.push(msg); ircSaveH(ch,h) }
+
+function ircGetSrv(){
+  const all=ircAllSrvs();
+  return all[parseInt(document.getElementById('irc-srv-sel').value)]||null;
+}
+
+function ircBuildSel(){
+  const sel=document.getElementById('irc-srv-sel');
+  const all=ircAllSrvs();
+  sel.innerHTML=all.map((s,i)=>`<option value="${i}">${s.name}</option>`).join('');
+}
+
+function ircBuildSrvList(){
+  const all=ircAllSrvs();
+  const el=document.getElementById('irc-srv-list');
+  el.innerHTML=all.map((s,i)=>`<div class="irc-srv-entry">
+    <div>
+      <div style="font-size:.78rem">${s.name}</div>
+      <div style="font-size:.65rem;opacity:.4">${s.host}:${s.port}${s.tls?' 🔒':''}</div>
+    </div>
+    ${i>=IRC_DEFS.length
+      ?`<button class="ml-btn-sm ml-btn-danger" onclick="ircDelSrv(${i-IRC_DEFS.length})">🗑️</button>`
+      :'<span style="font-size:.6rem;opacity:.25">default</span>'}
+  </div>`).join('');
+}
+
+function ircTab(t){
+  ['chat','cfg'].forEach(x=>{
+    document.getElementById('irc-stab-'+x).classList.toggle('active',x===t);
+    document.getElementById('irc-sec-'+x).classList.toggle('active',x===t);
+  });
+  if(t==='cfg'){ ircBuildSrvList(); ircLoadNickFields(); }
+}
+
+function ircLoadNickFields(){
+  document.getElementById('irc-nick-main').value=localStorage.getItem(IRC_NK)||'';
+  document.getElementById('irc-nick-alt').value=localStorage.getItem(IRC_NK2)||'';
+}
+function ircSaveNick(){
+  const n=document.getElementById('irc-nick-main').value.trim();
+  const n2=document.getElementById('irc-nick-alt').value.trim();
+  if(n) localStorage.setItem(IRC_NK,n);
+  if(n2) localStorage.setItem(IRC_NK2,n2);
+  toast('Nick guardado');
+}
+
+function ircAddServer(){
+  const host=document.getElementById('irc-add-host').value.trim(); if(!host) return;
+  const tls=document.getElementById('irc-add-tls').checked;
+  const port=parseInt(document.getElementById('irc-add-port').value)||(tls?6697:6667);
+  const name=document.getElementById('irc-add-name').value.trim()||host;
+  const password=document.getElementById('irc-add-pass').value.trim()||undefined;
+  const list=ircCustom(); list.push({name,host,port,tls,password});
+  ircSaveCustom(list); ircBuildSel(); ircBuildSrvList();
+  ['irc-add-host','irc-add-port','irc-add-name','irc-add-pass'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('irc-add-tls').checked=false;
+  toast('Servidor agregado');
+}
+
+function ircDelSrv(i){
+  const list=ircCustom(); list.splice(i,1); ircSaveCustom(list); ircBuildSel(); ircBuildSrvList();
+}
+
+function ircClearHist(){
+  if(!ircCurCh||!confirm('Borrar historial de '+ircCurCh+'?')) return;
+  localStorage.removeItem(ircHK(ircCurCh));
+  ircRenderChat(ircCurCh); toast('Historial borrado');
+}
+
+function ircEsc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') }
+function ircTime(ts){ const d=new Date(ts); return d.getHours().toString().padStart(2,'0')+':'+d.getMinutes().toString().padStart(2,'0') }
+function ircColor(nick){ let h=0; for(let i=0;i<nick.length;i++) h=(h*31+nick.charCodeAt(i))&0xffff; return `hsl(${h%360},55%,70%)` }
+
+function ircMsgHTML(m){
+  if(m.sys) return `<div class="irc-bubble-row sys"><div class="irc-bubble">${ircEsc(m.text)}</div></div>`;
+  if(m.notice) return `<div class="irc-bubble-row notice"><div class="irc-bubble">📢 <b>${ircEsc(m.nick)}</b>: ${ircEsc(m.text)}</div></div>`;
+  const mine=m.nick===ircMyNick;
+  const side=mine?'mine':'theirs';
+  const nick=mine?'Tu':`<span style="color:${ircColor(m.nick)}">${ircEsc(m.nick)}</span>`;
+  return `<div class="irc-bubble-row ${side}">
+    <div class="irc-bubble-meta">${nick} · ${ircTime(m.time)}</div>
+    <div class="irc-bubble">${ircEsc(m.text)}</div>
+  </div>`;
+}
+
+function ircRenderChat(ch){
+  const el=document.getElementById('irc-chat');
+  const hist=ircLoadH(ch);
+  el.innerHTML=hist.length ? hist.map(ircMsgHTML).join('') : '<div class="irc-bubble-row sys"><div class="irc-bubble">Sin mensajes aun</div></div>';
+  el.scrollTop=el.scrollHeight;
+  document.getElementById('irc-topic').textContent=ircTabs[ch]?.topic||'';
+  const users=ircTabs[ch]?.users||[];
+  document.getElementById('irc-users').textContent=users.length?users.length+' usuarios':'';
+}
+
+function ircRenderChips(){
+  const el=document.getElementById('irc-chips');
+  const keys=Object.keys(ircTabs);
+  if(!keys.length){el.innerHTML='<span style="font-size:.68rem;opacity:.3">Sin canales abiertos</span>';return}
+  el.innerHTML=keys.map(ch=>{
+    const unread=ircTabs[ch]?.unread?' unread':'';
+    const active=ch===ircCurCh?' active':'';
+    return `<button class="irc-chip${active}${unread}" onclick="ircSwitch('${ch.replace(/'/g,"\\'")}')">
+      ${ircEsc(ch)}<span class="irc-chip-count">${ircTabs[ch]?.users?.length||''}</span>
+      <span style="margin-left:4px;opacity:.4;font-size:.6rem" onclick="event.stopPropagation();ircClose('${ch.replace(/'/g,"\\'")}')">✕</span>
+    </button>`;
+  }).join('');
+}
+
+function ircSwitch(ch){
+  ircCurCh=ch;
+  if(ircTabs[ch]) ircTabs[ch].unread=false;
+  ircRenderChips(); ircRenderChat(ch);
+  document.getElementById('irc-input').placeholder='Mensaje en '+ch+'...';
+}
+
+function ircAddMsg(ch,msg,autoSwitch=false){
+  if(!ircTabs[ch]) ircTabs[ch]={users:[],unread:false,topic:''};
+  ircPushH(ch,msg);
+  if(ch!==ircCurCh){ ircTabs[ch].unread=true; ircRenderChips(); }
+  else ircRenderChat(ch);
+  if(autoSwitch&&!ircCurCh) ircSwitch(ch);
+}
+function ircSys(ch,text){ ircAddMsg(ch,{sys:true,text,time:Date.now()}) }
+
+function ircShowSuggest(list){
+  const wrap=document.getElementById('irc-suggest-wrap');
+  const el=document.getElementById('irc-suggest');
+  if(!list.length){wrap.style.display='none';return}
+  wrap.style.display='';
+  el.innerHTML=list.map(c=>`<button class="irc-sug-chip" onclick="ircJoinCh('${c.name.replace(/'/g,"\\'")}')">
+    ${ircEsc(c.name)}<span style="opacity:.5;margin-left:3px;font-size:.6rem">${c.users}</span>
+  </button>`).join('');
+}
+
+function ircConnectWS(){
+  if(ircWs){ircWs.onclose=null;ircWs.close()}
+  ircWs=new WebSocket('ws://'+location.host+'/irc-ws');
+  ircWs.onmessage=e=>{
+    const d=JSON.parse(e.data);
+    if(d.type==='status'){
+      if(d.connected){
+        ircMyNick=d.nick;
+        document.getElementById('irc-dot').textContent='● '+ircMyNick;
+        document.getElementById('irc-dot').className='irc-dot on';
+        document.getElementById('irc-conn-btn').textContent='⛔ Desconectar';
+      } else {
+        document.getElementById('irc-dot').textContent='●';
+        document.getElementById('irc-dot').className='irc-dot off';
+        document.getElementById('irc-conn-btn').textContent='🔗 Conectar';
+        ircTabs={}; ircCurCh=null; ircRenderChips(); ircShowSuggest([]);
+        document.getElementById('irc-chat').innerHTML='<div class="irc-bubble-row sys"><div class="irc-bubble">Desconectado</div></div>';
+      }
+    } else if(d.type==='message'){
+      const ch=d.pm?d.nick:d.target;
+      ircAddMsg(ch,{nick:d.nick,text:d.text,time:d.time,pm:!!d.pm},true);
+    } else if(d.type==='join'){
+      if(!ircTabs[d.channel]) ircTabs[d.channel]={users:[],unread:false,topic:''};
+      ircSys(d.channel,d.nick+' entro');
+      if(d.nick===ircMyNick&&!ircCurCh) ircSwitch(d.channel);
+      ircRenderChips();
+    } else if(d.type==='part'){
+      ircSys(d.channel,d.nick+' salio'+(d.reason?' ('+d.reason+')':''));
+      if(d.nick===ircMyNick){ delete ircTabs[d.channel]; if(ircCurCh===d.channel) ircCurCh=null; ircRenderChips(); }
+      else { const t=ircTabs[d.channel]; if(t) t.users=t.users.filter(u=>u!==d.nick); if(ircCurCh===d.channel) ircRenderChat(ircCurCh); }
+    } else if(d.type==='quit'){
+      Object.keys(ircTabs).forEach(ch=>{ const t=ircTabs[ch]; if(!t||!t.users.includes(d.nick)) return; t.users=t.users.filter(u=>u!==d.nick); ircSys(ch,d.nick+' salio de IRC'); });
+      if(ircCurCh) ircRenderChat(ircCurCh);
+    } else if(d.type==='nick'){
+      Object.keys(ircTabs).forEach(ch=>{ const t=ircTabs[ch]; if(!t) return; const i=t.users.indexOf(d.oldNick); if(i!==-1){t.users[i]=d.newNick;ircSys(ch,d.oldNick+' ahora es '+d.newNick);} });
+      if(d.oldNick===ircMyNick){ ircMyNick=d.newNick; document.getElementById('irc-dot').textContent='● '+ircMyNick; }
+      if(ircCurCh) ircRenderChat(ircCurCh);
+    } else if(d.type==='userlist'){
+      if(ircTabs[d.channel]){ ircTabs[d.channel].users=d.users; ircRenderChips(); if(ircCurCh===d.channel) ircRenderChat(ircCurCh); }
+    } else if(d.type==='topic'){
+      if(ircTabs[d.channel]){ ircTabs[d.channel].topic=d.topic; if(ircCurCh===d.channel) document.getElementById('irc-topic').textContent=d.topic; }
+    } else if(d.type==='notice'){
+      const ch=ircCurCh||'_notices';
+      if(!ircTabs[ch]) ircTabs[ch]={users:[],unread:false,topic:''};
+      ircAddMsg(ch,{notice:true,nick:d.nick||'*',text:d.text,time:Date.now()});
+    } else if(d.type==='list_end'){
+      ircShowSuggest(d.list||[]);
+    }
+  };
+  ircWs.onclose=()=>setTimeout(ircConnectWS,3000);
+}
+
+async function ircToggleConn(){
+  const btn=document.getElementById('irc-conn-btn');
+  if(btn.textContent.includes('Desconectar')){
+    await fetch('/api/irc/disconnect',{method:'POST',headers:{'Content-Type':'application/json'}});
+    return;
+  }
+  const srv=ircGetSrv(); if(!srv) return;
+  const nick=localStorage.getItem(IRC_NK)||'MuLy_'+Math.floor(Math.random()*9000+1000);
+  const nick2=localStorage.getItem(IRC_NK2)||undefined;
+  btn.disabled=true; ircCurHost=srv.host;
+  try{
+    await fetch('/api/irc/connect',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({host:srv.host,port:srv.port,nick,nick2,tls:srv.tls,password:srv.password||undefined})});
+  }catch(_){}
+  btn.disabled=false;
+}
+
+async function ircJoinCh(ch){
+  await fetch('/api/irc/join',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({channel:ch})});
+  if(!ircTabs[ch]) ircTabs[ch]={users:[],unread:false,topic:''};
+  ircSwitch(ch); ircRenderChips();
+}
+
+async function ircClose(ch){
+  if(ch.startsWith('#')) await fetch('/api/irc/part',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({channel:ch})});
+  delete ircTabs[ch];
+  if(ircCurCh===ch) ircCurCh=Object.keys(ircTabs)[0]||null;
+  ircRenderChips();
+  if(ircCurCh) ircRenderChat(ircCurCh);
+  else document.getElementById('irc-chat').innerHTML='<div class="irc-bubble-row sys"><div class="irc-bubble">Sin canal activo</div></div>';
+}
+
+async function ircSendMsg(){
+  const input=document.getElementById('irc-input');
+  const text=input.value.trim(); if(!text||!ircCurCh) return;
+  input.value='';
+  if(text.startsWith('/')){
+    const parts=text.slice(1).split(' '),cmd=parts[0].toLowerCase();
+    if(cmd==='nick'){ await fetch('/api/irc/nick',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({nick:parts[1]})}); return; }
+    if(cmd==='join'){ await ircJoinCh(parts[1]||''); return; }
+    if(cmd==='part'){ await ircClose(parts[1]||ircCurCh); return; }
+    if(cmd==='msg'&&parts[1]){ const tgt=parts[1],msg=parts.slice(2).join(' '); await fetch('/api/irc/msg',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({target:tgt,text:msg})}); ircAddMsg(tgt,{nick:ircMyNick,text:msg,time:Date.now(),pm:true},true); return; }
+    ircSys(ircCurCh,'Comando desconocido: '+text); return;
+  }
+  await fetch('/api/irc/msg',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({target:ircCurCh,text})});
+  ircAddMsg(ircCurCh,{nick:ircMyNick,text,time:Date.now()});
+}
+
+document.getElementById('irc-input').onkeydown=e=>{ if(e.key==='Enter') ircSendMsg(); };
+
+ircBuildSel();
+ircConnectWS();
+
+fetch('/api/irc/state').then(r=>r.json()).then(d=>{
+  if(!d.connected) return;
+  ircMyNick=d.nick; ircCurHost=d.host||'';
+  document.getElementById('irc-dot').textContent='● '+ircMyNick;
+  document.getElementById('irc-dot').className='irc-dot on';
+  document.getElementById('irc-conn-btn').textContent='⛔ Desconectar';
+}).catch(()=>{});
+</script>

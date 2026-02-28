@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>MuLy · aMule</title>
+<link rel="icon" href="../web/favicon.ico">
+<link rel="stylesheet" href="estilo.css">
+</head>
+<body>
+
+<dialog id="err-modal">
+  <div class="err-title">⚠️ Error</div>
+  <pre id="err-text"></pre>
+  <button onclick="$('err-modal').close()">OK</button>
+</dialog>
+
+<div id="login" class="ml-login-wrap">
+  <div class="ml-login-box">
+    <img src="../web/ICON.png" class="ml-logo-img" alt="MuLy">
+    <div class="ml-sub">MuLy · aMule EC · 127.0.0.1:4712</div>
+    <label class="ml-label">Password</label>
+    <input class="ml-input" type="password" id="pw-input"
+      placeholder="••••••••"
+      autocomplete="current-password" autocorrect="off"
+      spellcheck="false" enterkeyhint="go">
+    <button class="ml-btn" id="login-btn">Conectar</button>
+    <div class="ml-error" id="login-error"></div>
+  </div>
+</div>
+
+<div id="app" style="display:none">
+  <div class="ml-main">
+
+    <div class="ml-panel" id="panel-media"></div>
+
+    <div class="ml-panel active" id="panel-search">
+      <div class="ml-card">
+        <div class="ml-search-bar">
+          <input class="ml-search-input" id="search-input"
+            placeholder="Nombre, hash, ed2k..."
+            autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="search">
+          <select class="ml-select" id="search-type">
+            <option value="global">Global</option>
+            <option value="local">Local</option>
+            <option value="kad">Kad</option>
+          </select>
+          <button class="ml-btn-sm" id="search-btn">Buscar</button>
+        </div>
+      </div>
+      <div class="ml-card">
+        <div class="ml-filter-bar">
+          <span class="ml-count" id="results-count">Sin resultados</span>
+          <input class="ml-search-input ml-filter-input" id="filter-input"
+            placeholder="Filtrar: .mp4 .mkv..."
+            autocomplete="off" autocorrect="off" spellcheck="false">
+        </div>
+        <div id="results-wrap"><div class="ml-empty">Introduce un termino de busqueda</div></div>
+      </div>
+    </div>
+
+    <div class="ml-panel" id="panel-downloads">
+      <div class="ml-card">
+        <div class="ml-dl-tabs">
+          <button class="ml-dl-tab active" id="tab-downloading" onclick="switchDlTab('downloading')">⬇️ Descargando</button>
+          <button class="ml-dl-tab" id="tab-completed" onclick="switchDlTab('completed')">✅ Completados</button>
+        </div>
+      </div>
+      <div id="dl-downloading">
+        <div class="ml-card">
+          <div class="ml-count" id="dl-count">—</div>
+          <div id="downloads-wrap"><div class="ml-empty">Sin descargas activas</div></div>
+        </div>
+      </div>
+      <div id="dl-completed" style="display:none">
+        <div class="ml-card" id="uploading-card" style="display:none">
+          <div class="ml-count">📤 Subiendo</div>
+          <div id="uploading-wrap"></div>
+        </div>
+        <div class="ml-card">
+          <div style="margin-bottom:12px">
+            <button class="ml-btn-sm" onclick="reloadShared()">🔄 Recargar</button>
+          </div>
+          <div id="shared-wrap"><div class="ml-empty">Sin archivos</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="ml-panel" id="panel-config">
+      <div class="ml-card">
+        <div class="ml-config-grid">
+          <button class="ml-config-item" onclick="openSub('stats')"><span class="ci-ico">📊</span><span class="ci-lbl">Stats</span></button>
+          <button class="ml-config-item" onclick="openSub('servers')"><span class="ci-ico">🌐</span><span class="ci-lbl">Servers</span></button>
+          <button class="ml-config-item" onclick="openSub('cats')"><span class="ci-ico">🏷️</span><span class="ci-lbl">Categorias</span></button>
+          <button class="ml-config-item" onclick="openSub('theme')"><span class="ci-ico">🎨</span><span class="ci-lbl">Tema</span></button>
+          <button class="ml-config-item" onclick="openSub('about.html')"><span class="ci-ico">ℹ️</span><span class="ci-lbl">About</span></button>
+        </div>
+      </div>
+      <div class="ml-card">
+        <div class="ml-count">Server Message</div>
+        <div id="srv-info-wrap"><div class="ml-empty">Cargando...</div></div>
+      </div>
+    </div>
+
+    <div class="ml-panel" id="panel-irc"></div>
+
+  </div>
+
+  <div id="subpage-wrap">
+    <div id="subpage-content">
+      <button class="ml-back-btn" onclick="closeSub()">← Volver</button>
+      <div id="subpage-inner"></div>
+    </div>
+  </div>
+
+  <nav class="ml-bottomnav">
+    <button class="ml-navbtn" data-panel="media"><span class="nav-ico">🎵</span><span class="nav-lbl">Media</span></button>
+    <button class="ml-navbtn active" data-panel="search"><span class="nav-ico">🔍</span><span class="nav-lbl">Buscar</span></button>
+    <button class="ml-navbtn" data-panel="downloads"><span class="nav-ico">⬇️</span><span class="nav-lbl">Descargas</span></button>
+    <button class="ml-navbtn" data-panel="irc"><span class="nav-ico">💬</span><span class="nav-lbl">IRC</span></button>
+    <button class="ml-navbtn" data-panel="config"><span class="nav-ico">⚙️</span><span class="nav-lbl">Config</span></button>
+  </nav>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const $ = id => document.getElementById(id);
+const POLL_MAX = 40, POLL_MS = 3000;
+const PK = 'muly_pw', TK = 'muly_theme';
+let searchResults = [], pollTimer = null, pollCount = 0, isSearching = false;
+let dlTimer = null, connectedSrv = null, srvList = [];
+let curPanel = 'search', curDlTab = 'downloading';
+
+function toast(msg) {
+  const t = $('toast');
+  t.textContent = msg; t.className = 'show';
+  clearTimeout(t._t); t._t = setTimeout(() => t.className = '', 2500);
+}
+function err(msg) { $('err-text').textContent = msg; $('err-modal').showModal(); }
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function fmtSize(b) {
+  b = Number(b); if (!b) return '—';
+  if (b < 1024) return b+'B';
+  if (b < 1048576) return (b/1024).toFixed(1)+'KB';
+  if (b < 1073741824) return (b/1048576).toFixed(1)+'MB';
+  return (b/1073741824).toFixed(2)+'GB';
+}
+async function api(method, path, body) {
+  const opts = { method, headers: {'Content-Type':'application/json'} };
+  if (body) opts.body = JSON.stringify(body);
+  const r = await fetch(path, opts);
+  if (!r.headers.get('content-type')?.includes('json')) throw new Error('HTTP '+r.status);
+  const d = await r.json();
+  if (!r.ok) throw new Error(d.error || 'HTTP '+r.status);
+  return d;
+}
+
+const _execSrcs = new Set();
+function _execScripts(el) {
+  el.querySelectorAll('script').forEach(o => {
+    if (o.dataset.executed) return;
+    if (o.src && _execSrcs.has(o.src)) return;
+    if (o.src) _execSrcs.add(o.src);
+    o.dataset.executed = '1';
+    const n = document.createElement('script');
+    for (const a of o.attributes) n.setAttribute(a.name, a.value);
+    n.textContent = o.textContent;
+    o.parentNode.replaceChild(n, o);
+  });
+}
+async function loadPanel(url, target) {
+  const inner = target || $('subpage-inner');
+  inner.innerHTML = '<div class="ml-empty">⌛ Cargando...</div>';
+  if (!target) document.head.querySelectorAll('style[data-panel]').forEach(s => s.remove());
+  try {
+    const html = await fetch(url).then(r => { if (!r.ok) throw new Error('HTTP '+r.status); return r.text(); });
+    inner.innerHTML = html;
+    inner.querySelectorAll('style').forEach(s => { s.dataset.panel = '1'; document.head.appendChild(s); });
+    _execScripts(inner);
+    inner.dispatchEvent(new CustomEvent('contentLoaded', { bubbles: true }));
+  } catch(e) { inner.innerHTML = '<div class="ml-empty">Error: '+esc(e.message)+'</div>'; }
+}
+
+const subLoaders = { stats: loadStats, servers: loadServers, cats: loadCats, theme: loadTheme };
+function openSub(name) {
+  $('subpage-inner').innerHTML = '<div class="ml-empty">⌛ Cargando...</div>';
+  document.head.querySelectorAll('style[data-panel]').forEach(s => s.remove());
+  $('subpage-wrap').classList.add('open');
+  if (subLoaders[name]) subLoaders[name]();
+  else loadPanel(name);
+}
+function closeSub() {
+  $('subpage-wrap').classList.remove('open');
+  document.head.querySelectorAll('style[data-panel]').forEach(s => s.remove());
+}
+
+function showApp() {
+  $('login').style.display = 'none';
+  $('app').style.display = 'block';
+  loadConnState();
+}
+async function connect(pw) { await api('POST', '/api/connect', { password: pw }); }
+async function doLogin() {
+  const pw = $('pw-input').value.trim(); if (!pw) return;
+  const btn = $('login-btn');
+  btn.disabled = true; btn.textContent = '⌛ Conectando...';
+  $('login-error').textContent = '';
+  try { await connect(pw); localStorage.setItem(PK, pw); $('pw-input').value = ''; showApp(); }
+  catch(e) { $('login-error').textContent = e.message; }
+  btn.disabled = false; btn.textContent = 'Conectar';
+}
+$('login-btn').onclick = doLogin;
+$('pw-input').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
+
+(async () => {
+  const pw = localStorage.getItem(PK);
+  if (!pw) return;
+  try { await connect(pw); showApp(); } catch(e) {}
+})();
+
+document.querySelectorAll('.ml-navbtn').forEach(btn => {
+  btn.onclick = () => {
+    pausePolling(); stopDlTimer();
+    document.querySelectorAll('.ml-navbtn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.ml-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    curPanel = btn.dataset.panel;
+    $('panel-'+curPanel).classList.add('active');
+    if (curPanel === 'media' && !$('panel-media').dataset.loaded) {
+      $('panel-media').dataset.loaded = '1';
+      loadPanel('media.html', $('panel-media'));
+    }
+    if (curPanel === 'downloads') { loadDownloads(); dlTimer = setInterval(loadDownloads, 3000); }
+    if (curPanel === 'config') { loadSrvInfo(); loadConnState(); }
+    if (curPanel === 'irc' && !$('panel-irc').dataset.loaded) {
+      $('panel-irc').dataset.loaded = '1';
+      loadPanel('irc.html', $('panel-irc'));
+    }
+    if (curPanel === 'search' && isSearching && pollCount < POLL_MAX) resumePolling();
+  };
+});
+
+async function loadConnState() {
+  try { const d = await api('GET', '/api/connstate'); connectedSrv = d.connectedServer || null; } catch(e) {}
+}
+function pausePolling() { clearInterval(pollTimer); pollTimer = null; }
+function stopPolling() { pausePolling(); pollCount = 0; isSearching = false; }
+function stopDlTimer() { clearInterval(dlTimer); dlTimer = null; }
+function resumePolling() {
+  pollTimer = setInterval(async () => {
+    if (++pollCount > POLL_MAX) { stopPolling(); return; }
+    try { const d = await api('GET', '/api/search/results'); applyResults(d.results || []); } catch(e) {}
+  }, POLL_MS);
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) pausePolling();
+  else if (curPanel === 'search' && isSearching && pollCount < POLL_MAX) resumePolling();
+});
+
+async function doSearch() {
+  const q = $('search-input').value.trim(); if (!q) return;
+  stopPolling();
+  const btn = $('search-btn');
+  btn.disabled = true; btn.textContent = '⌛';
+  $('results-wrap').innerHTML = '<div class="ml-empty">⌛ Buscando...</div>';
+  $('results-count').textContent = 'Buscando...';
+  $('filter-input').value = '';
+  try {
+    await api('POST', '/api/search/start', { query: q, type: $('search-type').value });
+    isSearching = true; resumePolling();
+  } catch(e) { err(e.message); $('results-wrap').innerHTML = '<div class="ml-empty">Error</div>'; }
+  btn.disabled = false; btn.textContent = 'Buscar';
+}
+function applyResults(data) { searchResults = Array.isArray(data) ? data : []; renderResults(); }
+function renderResults() {
+  const ext = ($('filter-input').value || '').trim().toLowerCase();
+  const list = ext ? searchResults.filter(f => f.fileName?.toLowerCase().includes(ext)) : searchResults;
+  $('results-count').textContent = ext
+    ? list.length+'/'+searchResults.length+' resultados'
+    : searchResults.length+' resultado'+(searchResults.length !== 1 ? 's' : '');
+  if (!list.length) {
+    $('results-wrap').innerHTML = '<div class="ml-empty">'+(ext?'Sin resultados para ese filtro':'Sin resultados aun')+'</div>';
+    return;
+  }
+  $('results-wrap').innerHTML = list.map(f =>
+    `<div class="ml-item">
+      <div class="ml-item-name">${esc(f.fileName)}</div>
+      <div class="ml-item-meta">📦${fmtSize(f.fileSize)} &nbsp;🌱${f.sourceCount||'—'}</div>
+      <div class="ml-item-actions"><button class="ml-btn-sm" onclick="downloadFile('${esc(f.fileHash)}',this)">⬇️ Descargar</button></div>
+    </div>`
+  ).join('');
+}
+$('search-btn').onclick = doSearch;
+$('search-input').addEventListener('keydown', e => { if(e.key==='Enter') doSearch(); });
+$('filter-input').oninput = renderResults;
+
+async function downloadFile(hash, btn) {
+  btn.disabled = true; btn.textContent = '⌛';
+  try { await api('POST', '/api/download', { hash }); btn.textContent = '✓'; toast('Descarga iniciada'); }
+  catch(e) { btn.disabled = false; btn.textContent = '⬇️ Descargar'; err(e.message); }
+}
+
+async function loadDownloads() {
+  try {
+    const data = await api('GET', '/api/downloads');
+    $('dl-count').textContent = data.length+' archivo'+(data.length !== 1 ? 's' : '');
+    if (!data.length) { $('downloads-wrap').innerHTML = '<div class="ml-empty">Sin descargas activas</div>'; return; }
+    $('downloads-wrap').innerHTML = data.map(f => {
+      const pct = parseFloat(f.progress || 0);
+      return `<div class="ml-item">
+        <div class="ml-item-name">${esc(f.fileName)}</div>
+        <div class="ml-progress-wrap"><div class="ml-progress-bar" style="width:${Math.min(pct,100)}%"></div></div>
+        <div class="ml-item-meta">📦${fmtSize(f.fileSizeDownloaded)}/${fmtSize(f.fileSize)} &nbsp;🌱${f.sourceCount||'—'}${f.speed?' &nbsp;⚡'+fmtSize(f.speed)+'/s':''} &nbsp;${pct}%</div>
+        <div class="ml-item-actions">
+          <button class="ml-btn-sm" onclick="dlAction('pause','${esc(f.fileHash)}',this)">⏸️ Pausar</button>
+          <button class="ml-btn-sm" onclick="dlAction('resume','${esc(f.fileHash)}',this)">▶️ Reanudar</button>
+          <button class="ml-btn-sm ml-btn-danger" onclick="dlAction('cancel','${esc(f.fileHash)}',this)">🗑️ Borrar</button>
+        </div>
+      </div>`;
+    }).join('');
+  } catch(e) { err(e.message); }
+}
+async function dlAction(action, hash, btn) {
+  btn.disabled = true;
+  try {
+    const ep = { pause:'/api/downloads/pause', resume:'/api/downloads/resume', cancel:'/api/downloads' };
+    await api(action === 'cancel' ? 'DELETE' : 'POST', ep[action], { hash });
+    toast('OK'); loadDownloads();
+  } catch(e) { btn.disabled = false; err(e.message); }
+}
+
+function switchDlTab(tab) {
+  curDlTab = tab;
+  $('tab-downloading').classList.toggle('active', tab === 'downloading');
+  $('tab-completed').classList.toggle('active', tab === 'completed');
+  $('dl-downloading').style.display = tab === 'downloading' ? '' : 'none';
+  $('dl-completed').style.display = tab === 'completed' ? '' : 'none';
+  if (tab === 'completed') { loadShared(); loadUploading(); }
+}
+
+async function loadShared() {
+  $('shared-wrap').innerHTML = '<div class="ml-empty">⌛ Cargando...</div>';
+  try {
+    const data = await api('GET', '/api/shared');
+    $('shared-wrap').innerHTML = data.length
+      ? data.map(f => `<div class="ml-item">
+          <div class="ml-item-name">${esc(f.fileName)}</div>
+          <div class="ml-item-meta">📦${fmtSize(f.fileSize)} &nbsp;📤${fmtSize(f.transferred)} &nbsp;🤲${f.reqCount||'0'}</div>
+        </div>`).join('')
+      : '<div class="ml-empty">Sin archivos</div>';
+  } catch(e) { $('shared-wrap').innerHTML = '<div class="ml-empty">Error</div>'; err(e.message); }
+}
+async function reloadShared() {
+  try { await api('POST', '/api/shared/reload'); toast('Recargado'); loadShared(); } catch(e) { err(e.message); }
+}
+
+async function loadUploading() {
+  try {
+    const raw = await api('GET', '/api/uploads');
+    const entries = Array.isArray(raw) ? raw : Object.values(raw||{}).filter(v => v && typeof v === 'object');
+    const card = $('uploading-card');
+    if (!entries.length) { card.style.display = 'none'; return; }
+    card.style.display = '';
+    $('uploading-wrap').innerHTML = entries.map(f => `<div class="ml-item">
+      <div class="ml-item-name">${esc(f.EC_TAG_PARTFILE_NAME||f.fileName||'—')}</div>
+      <div class="ml-item-meta">📦${fmtSize(f.EC_TAG_PARTFILE_SIZE_FULL||f.fileSize)} &nbsp;⚡${fmtSize(f.EC_TAG_PARTFILE_SPEED||f.speed)}/s</div>
+    </div>`).join('');
+  } catch(e) { $('uploading-card').style.display = 'none'; }
+}
+
+async function loadSrvInfo() {
+  try {
+    const d = await api('GET', '/api/servers/info');
+    $('srv-info-wrap').innerHTML = d.message
+      ? '<div class="ml-log-block">'+esc(d.message)+'</div>'
+      : '<div class="ml-empty">Sin mensaje</div>';
+  } catch(e) { $('srv-info-wrap').innerHTML = '<div class="ml-empty">—</div>'; }
+}
+
+function isConn(s) { return !!(connectedSrv && s.ip === connectedSrv.ip && s.port === connectedSrv.port); }
+async function loadServers() {
+  await loadConnState();
+  try {
+    srvList = await api('GET', '/api/servers');
+    if (!srvList.length) { $('subpage-inner').innerHTML = '<div class="ml-card"><div class="ml-empty">Sin servidores</div></div>'; return; }
+    const sorted = [...srvList].sort((a,b) => isConn(a) ? -1 : isConn(b) ? 1 : 0);
+    $('subpage-inner').innerHTML = '<div class="ml-card">'+sorted.map(s => {
+      const conn = isConn(s), i = srvList.indexOf(s);
+      return `<div class="ml-item${conn?' ml-item-connected':''}">
+        <div class="ml-item-name">${conn?'🟢 ':''}${esc(s.name)}</div>
+        <div class="ml-item-meta">👥${s.users||'—'} &nbsp;🗃️${s.files||'—'} &nbsp;⚡${s.ping?s.ping+'ms':'—'}${s.version?' &nbsp;v'+esc(s.version):''}</div>
+        ${s.desc?'<div class="ml-item-meta">'+esc(s.desc)+'</div>':''}
+        <div class="ml-item-actions">
+          ${conn
+            ? '<button class="ml-btn-sm ml-btn-danger" onclick="srvDisconnect(this)">⛔ Desconectar</button>'
+            : '<button class="ml-btn-sm" onclick="srvConnect('+i+',this)">🔗 Conectar</button>'}
+          <button class="ml-btn-sm ml-btn-danger" onclick="srvRemove(${i},this)">🗑️ Borrar</button>
+        </div>
+      </div>`;
+    }).join('')+'</div>';
+  } catch(e) { $('subpage-inner').innerHTML = '<div class="ml-empty">Error</div>'; err(e.message); }
+}
+async function srvConnect(i, btn) {
+  const s = srvList[i]; if (!s) return; btn.disabled = true;
+  try { await api('POST', '/api/servers/connect', { ip: s.ip, port: s.port }); connectedSrv={ip:s.ip,port:s.port,name:s.name}; toast('Conectado a '+s.name); loadServers(); }
+  catch(e) { btn.disabled = false; err(e.message); }
+}
+async function srvDisconnect(btn) {
+  if (!connectedSrv) return; btn.disabled = true;
+  try { await api('POST', '/api/servers/disconnect', { ip: connectedSrv.ip, port: connectedSrv.port }); connectedSrv = null; toast('Desconectado'); loadServers(); }
+  catch(e) { btn.disabled = false; err(e.message); }
+}
+async function srvRemove(i, btn) {
+  const s = srvList[i]; if (!s) return; btn.disabled = true;
+  try { await api('DELETE', '/api/servers', { ip: s.ip, port: s.port }); toast('Borrado'); loadServers(); }
+  catch(e) { btn.disabled = false; err(e.message); }
+}
+
+async function loadCats() {
+  try {
+    const data = await api('GET', '/api/categories');
+    $('subpage-inner').innerHTML = '<div class="ml-card">'
+      +'<div style="margin-bottom:12px"><button class="ml-btn-sm" onclick="newCat()">+ Nueva</button></div>'
+      +(data.length
+        ? data.map(c => `<div class="ml-item">
+            <div class="ml-item-name">${esc(c.title)}</div>
+            ${c.path?'<div class="ml-item-meta">'+esc(c.path)+'</div>':''}
+            <div class="ml-item-actions"><button class="ml-btn-sm ml-btn-danger" onclick="deleteCat(${c.id},this)">🗑️ Borrar</button></div>
+          </div>`).join('')
+        : '<div class="ml-empty">Sin categorias</div>')
+      +'</div>';
+  } catch(e) { $('subpage-inner').innerHTML = '<div class="ml-empty">Error</div>'; err(e.message); }
+}
+async function newCat() {
+  const title = prompt('Titulo:'); if (!title) return;
+  const catPath = prompt('Ruta (opcional):') || '';
+  try { await api('POST', '/api/categories', { title, catPath }); toast('Creada'); loadCats(); } catch(e) { err(e.message); }
+}
+async function deleteCat(id, btn) {
+  if (!confirm('Eliminar?')) return; btn.disabled = true;
+  try { await api('DELETE', '/api/categories/'+id); toast('Eliminada'); loadCats(); } catch(e) { btn.disabled = false; err(e.message); }
+}
+
+function renderKV(obj) {
+  if (!obj || typeof obj !== 'object') return '';
+  return Object.entries(obj).map(([k,v]) => {
+    const lbl = k.replace(/^EC_TAG_/,'').replace(/_/g,' ').toLowerCase();
+    if (typeof v === 'string' && v.length > 80) {
+      return '<div class="ml-stat-row"><span class="ml-stat-key">'+esc(lbl)+'</span><span class="ml-stat-val">'
+        +'<span class="ml-log-collapse" onclick="var d=this.nextElementSibling;d.style.display=d.style.display===\'none\'?\'block\':\'none\'">mostrar ▾</span>'
+        +'<div class="ml-log-block" style="display:none">'+esc(v)+'</div></span></div>';
+    }
+    if (v && typeof v === 'object' && !Array.isArray(v)) {
+      const ch = renderKV(v); if (!ch) return '';
+      return '<div class="ml-stat-group"><span class="ml-stat-key">'+esc(lbl)+'</span><div class="ml-stat-children">'+ch+'</div></div>';
+    }
+    return '<div class="ml-stat-row"><span class="ml-stat-key">'+esc(lbl)+'</span><span class="ml-stat-val">'+esc(String(v??'—'))+'</span></div>';
+  }).join('');
+}
+async function loadStats() {
+  try {
+    const data = await api('GET', '/api/stats');
+    $('subpage-inner').innerHTML = '<div class="ml-card"><div class="ml-stat-block">'+renderKV(data)+'</div></div>';
+  } catch(e) { $('subpage-inner').innerHTML = '<div class="ml-empty">Error</div>'; err(e.message); }
+}
+
+function injectGFont(url) {
+  const ex = document.getElementById('theme-gfont'); if (ex) ex.remove();
+  const lk = document.createElement('link');
+  lk.id = 'theme-gfont'; lk.rel = 'stylesheet'; lk.href = url;
+  document.head.appendChild(lk);
+  const m = url.match(/family=([^&:]+)/);
+  return m ? decodeURIComponent(m[1].replace(/\+/g,' ')) : null;
+}
+function injectDirectFont(url) {
+  const st = document.getElementById('theme-font') || document.createElement('style');
+  st.id = 'theme-font';
+  st.textContent = `@font-face{font-family:'UserFont';src:url('${url}')}`;
+  document.head.appendChild(st);
+  return 'UserFont';
+}
+function applyTheme(t) {
+  if (!t) return;
+  if (t.bg) document.body.style.backgroundImage = 'url('+t.bg+')';
+  if (t.font) {
+    const family = t.font.includes('fonts.googleapis.com') ? injectGFont(t.font) : injectDirectFont(t.font);
+    if (family) {
+      const st = document.getElementById('theme-body-font') || document.createElement('style');
+      st.id = 'theme-body-font';
+      st.textContent = `body{font-family:'${family}','Fluent Emoji Color',sans-serif}`;
+      document.head.appendChild(st);
+    }
+  }
+}
+applyTheme(JSON.parse(localStorage.getItem(TK)||'null'));
+
+function loadTheme() {
+  const t = JSON.parse(localStorage.getItem(TK)||'{}');
+  $('subpage-inner').innerHTML = `<div class="ml-card">
+    <div class="ml-item">
+      <div class="ml-item-name">Imagen de fondo (URL)</div>
+      <input class="ml-search-input" id="th-bg" style="width:100%;margin-top:6px" placeholder="https://..." value="${esc(t.bg||'')}">
+    </div>
+    <div class="ml-item">
+      <div class="ml-item-name">Fuente (Google Fonts o jsDelivr)</div>
+      <div class="ml-item-meta" style="margin-top:4px">fonts.googleapis.com/css2?family=Comfortaa &nbsp;·&nbsp; cdn.jsdelivr.net/gh/...</div>
+      <input class="ml-search-input" id="th-font" style="width:100%;margin-top:6px" placeholder="https://fonts.googleapis.com/css2?family=..." value="${esc(t.font||'')}">
+    </div>
+    <div class="ml-item-actions" style="margin-top:14px;gap:8px">
+      <button class="ml-btn-sm" onclick="saveTheme()">💾 Guardar</button>
+      <button class="ml-btn-sm ml-btn-danger" onclick="resetTheme()">🗑️ Restablecer</button>
+    </div>
+  </div>`;
+}
+function saveTheme() {
+  const t = { bg: $('th-bg').value.trim(), font: $('th-font').value.trim() };
+  localStorage.setItem(TK, JSON.stringify(t));
+  applyTheme(t); toast('Tema guardado');
+}
+function resetTheme() {
+  localStorage.removeItem(TK);
+  document.body.style.backgroundImage = '';
+  ['theme-gfont','theme-font','theme-body-font'].forEach(id => { const el = document.getElementById(id); if (el) el.remove(); });
+  toast('Tema restablecido'); loadTheme();
+}
+</script>
+</body>
+</html>

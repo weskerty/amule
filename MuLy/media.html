@@ -1,0 +1,347 @@
+<style>
+.md-root{display:flex;flex-direction:column;gap:6px}
+.md-tabs{display:flex;gap:5px}
+.md-tab{flex:1;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:10px;color:rgba(255,255,255,0.45);cursor:pointer;font-family:inherit;font-size:1.25rem;padding:6px 4px;transition:all .15s;line-height:1}
+.md-tab.active{background:rgba(255,255,255,0.13);color:#fff;border-color:rgba(255,255,255,0.22)}
+.md-search-wrap{display:flex;gap:8px;align-items:center}
+.md-search-wrap input{flex:1}
+.md-list{display:flex;flex-direction:column}
+.md-item{display:flex;align-items:center;gap:9px;padding:7px 0;border-bottom:1px solid rgba(255,255,255,0.06)}
+.md-item:last-child{border-bottom:none}
+.md-thumb{width:40px;height:40px;border-radius:7px;background:rgba(255,255,255,0.07);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:1.2rem;overflow:hidden;cursor:pointer;transition:opacity .15s}
+.md-thumb:hover{opacity:.75}
+.md-thumb img{width:100%;height:100%;object-fit:cover;border-radius:7px}
+.md-info{flex:1;min-width:0;cursor:pointer}
+.md-name{font-size:.82rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.md-meta{font-size:.63rem;opacity:.45;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
+.md-actions{display:flex;gap:5px;flex-shrink:0}
+.md-player-card{display:flex;flex-direction:column;gap:7px}
+.md-viz-wrap{position:relative;border-radius:10px;overflow:hidden;background:#000;height:110px;cursor:pointer}
+.md-viz-wrap canvas{position:absolute;inset:0;z-index:2}
+.md-viz-bg{position:absolute;inset:0;z-index:1;background:center/contain no-repeat #000;transition:background-image .3s}
+:fullscreen .md-viz-bg{background-size:contain}
+.md-player-info{display:flex;align-items:center;gap:8px}
+.md-player-title{font-size:.85rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.md-player-artist{font-size:.68rem;opacity:.5;margin-top:1px}
+.md-ctrl-row{display:flex;align-items:center;gap:7px}
+.md-ctrl-btn{background:none;border:none;color:#fff;cursor:pointer;font-size:1.05rem;padding:3px 5px;opacity:.75;transition:opacity .15s}
+.md-ctrl-btn:hover{opacity:1}
+.md-ctrl-btn.main{font-size:1.35rem;opacity:1}
+.md-prog{flex:1;height:3px;background:rgba(255,255,255,0.12);border-radius:2px;cursor:pointer}
+.md-prog-bar{height:100%;background:rgba(255,255,255,0.65);border-radius:2px;pointer-events:none;width:0}
+.md-time{font-size:.6rem;opacity:.4;flex-shrink:0;min-width:68px;text-align:right}
+.md-vol{width:52px;accent-color:rgba(255,255,255,0.6);cursor:pointer}
+.md-img-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(86px,1fr));gap:7px}
+.md-img-cell{aspect-ratio:1;border-radius:8px;overflow:hidden;cursor:pointer;background:rgba(255,255,255,0.06)}
+.md-img-cell img{width:100%;height:100%;object-fit:cover;transition:transform .2s}
+.md-img-cell:hover img{transform:scale(1.06)}
+.md-lightbox{position:fixed;inset:0;background:rgba(0,0,0,0.93);z-index:9999;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;padding:16px}
+.md-lightbox img{max-width:92vw;max-height:74vh;object-fit:contain;border-radius:8px}
+.md-lb-nav{display:flex;gap:8px;align-items:center}
+.md-edit-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.78);z-index:9998;display:flex;align-items:center;justify-content:center;padding:20px}
+.md-edit-box{background:rgba(18,18,18,0.97);border:1px solid rgba(255,255,255,0.12);border-radius:16px;padding:18px;width:100%;max-width:330px;display:flex;flex-direction:column;gap:8px;max-height:90vh;overflow-y:auto}
+.md-edit-cover-wrap{display:flex;align-items:center;gap:10px;margin-bottom:2px}
+.md-edit-cover{width:58px;height:58px;border-radius:8px;background:rgba(255,255,255,0.07);display:flex;align-items:center;justify-content:center;font-size:1.8rem;overflow:hidden;cursor:pointer;flex-shrink:0}
+.md-edit-cover img{width:100%;height:100%;object-fit:cover;border-radius:8px}
+.md-edit-cover-hint{font-size:.63rem;opacity:.4;line-height:1.4}
+.md-edit-field label{font-size:.65rem;opacity:.5;display:block;margin-bottom:2px}
+.md-edit-field input{width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:8px;color:#fff;font-family:inherit;font-size:.8rem;padding:6px 9px;outline:none}
+.md-edit-actions{display:flex;gap:7px;margin-top:2px}
+</style>
+
+<div class="md-root">
+  <div class="ml-card" id="md-player-card" style="display:none">
+    <div class="md-player-card">
+      <div class="md-viz-wrap" id="md-viz-wrap">
+        <div class="md-viz-bg" id="md-viz-bg"></div>
+      </div>
+      <div class="md-player-info">
+        <div style="flex:1;min-width:0">
+          <div class="md-player-title" id="md-ptitle">—</div>
+          <div class="md-player-artist" id="md-partist">—</div>
+        </div>
+      </div>
+      <div class="md-ctrl-row">
+        <button class="md-ctrl-btn" id="md-prev">⏮</button>
+        <button class="md-ctrl-btn main" id="md-play">▶</button>
+        <button class="md-ctrl-btn" id="md-next">⏭</button>
+        <div class="md-prog" id="md-prog"><div class="md-prog-bar" id="md-progbar"></div></div>
+        <span class="md-time" id="md-time">0:00</span>
+        <input type="range" class="md-vol" id="md-vol" min="0" max="100" value="80">
+      </div>
+    </div>
+    <audio id="md-audio" crossorigin="anonymous"></audio>
+  </div>
+
+  <div class="ml-card" style="padding:10px 12px">
+    <div class="md-tabs">
+      <button class="md-tab active" id="md-tab-audio" onclick="mdTab('audio')">🎵</button>
+      <button class="md-tab" id="md-tab-video" onclick="mdTab('video')">📺</button>
+      <button class="md-tab" id="md-tab-image" onclick="mdTab('image')">🖼️</button>
+      <button class="md-tab" id="md-tab-doc" onclick="mdTab('doc')">📃</button>
+    </div>
+  </div>
+
+  <div class="ml-card" style="padding:10px 12px">
+    <div class="md-search-wrap">
+      <input class="ml-search-input" id="md-search" placeholder="Buscar..." autocomplete="off" autocorrect="off" spellcheck="false">
+      <button class="ml-btn-sm" onclick="mdScan()">🔄</button>
+    </div>
+  </div>
+
+  <div class="ml-card" style="padding:10px 12px">
+    <div id="md-list-wrap"><div class="ml-empty">⌛ Cargando...</div></div>
+  </div>
+</div>
+
+<script type="module">
+import AudioMotionAnalyzer from 'https://cdn.jsdelivr.net/npm/audiomotion-analyzer@4/+esm';
+
+let mdAll=[], mdIdx=-1, mdQueue=[], mdCurTab='audio', mdAM=null;
+const mdAudio=document.getElementById('md-audio');
+
+function mdFmt(s){if(!s||isNaN(s))return'0:00';return`${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,'0')}`}
+function mdEsc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+function mdSize(b){b=Number(b);if(!b)return'—';if(b<1048576)return(b/1024).toFixed(0)+'KB';if(b<1073741824)return(b/1048576).toFixed(1)+'MB';return(b/1073741824).toFixed(2)+'GB'}
+function mdEnc(r){return r.split('/').map(encodeURIComponent).join('/')}
+
+mdAudio.volume=0.8;
+document.getElementById('md-vol').addEventListener('input',e=>mdAudio.volume=e.target.value/100);
+mdAudio.addEventListener('timeupdate',()=>{
+  if(!mdAudio.duration)return;
+  document.getElementById('md-progbar').style.width=(mdAudio.currentTime/mdAudio.duration*100)+'%';
+  document.getElementById('md-time').textContent=mdFmt(mdAudio.currentTime)+' / '+mdFmt(mdAudio.duration);
+});
+mdAudio.addEventListener('ended',()=>mdPlayIdx(mdIdx+1));
+document.getElementById('md-prog').addEventListener('click',e=>{
+  if(!mdAudio.duration)return;
+  mdAudio.currentTime=(e.offsetX/document.getElementById('md-prog').offsetWidth)*mdAudio.duration;
+});
+document.getElementById('md-play').addEventListener('click',()=>{
+  if(mdAudio.paused)mdAudio.play();else mdAudio.pause();
+  document.getElementById('md-play').textContent=mdAudio.paused?'▶':'⏸';
+});
+document.getElementById('md-prev').addEventListener('click',()=>mdPlayIdx(mdIdx-1));
+document.getElementById('md-next').addEventListener('click',()=>mdPlayIdx(mdIdx+1));
+
+function mdInitAM(){
+  if(mdAM)return;
+  try{
+    const wrap=document.getElementById('md-viz-wrap');
+    mdAM=new AudioMotionAnalyzer(wrap,{
+      source:mdAudio,
+      fsElement:wrap,
+      width:wrap.offsetWidth||320,
+      height:110,
+      mode:6,
+      gradient:'rainbow',
+      showScaleX:false,
+      showBgColor:false,
+      overlay:true,
+      bgAlpha:0,
+      reflexRatio:.4,
+      reflexAlpha:.8,
+      reflexBright:1,
+      lineWidth:2,
+      fillAlpha:1,
+      barSpace:.25,
+      connectSpeakers:true,
+    });
+    wrap.onclick=()=>mdAM.toggleFullscreen();
+  }catch(e){}
+}
+
+function mdPlayIdx(i){
+  if(!mdQueue.length)return;
+  mdIdx=(i+mdQueue.length)%mdQueue.length;
+  mdPlayEntry(mdQueue[mdIdx]);
+}
+
+function mdPlayEntry(f){
+  document.getElementById('md-player-card').style.display='';
+  mdAudio.src='/files/'+mdEnc(f.rel);
+  mdAudio.play().then(()=>mdInitAM()).catch(()=>{});
+  document.getElementById('md-play').textContent='⏸';
+  document.getElementById('md-ptitle').textContent=f.title||f.name;
+  document.getElementById('md-partist').textContent=f.artist||'—';
+  document.getElementById('md-viz-bg').style.backgroundImage=f.cover?`url(${f.cover})`:'none';
+  mdRenderList();
+}
+
+window.mdTab=function(t){
+  mdCurTab=t;
+  document.querySelectorAll('.md-tab').forEach(b=>b.classList.remove('active'));
+  document.getElementById('md-tab-'+t).classList.add('active');
+  mdRenderList();
+};
+
+function mdFilter(){
+  const q=document.getElementById('md-search').value.trim().toLowerCase();
+  const pool=mdAll.filter(f=>f.type===mdCurTab);
+  if(!q)return pool;
+  return pool.filter(f=>
+    f.name.toLowerCase().includes(q)||
+    (f.title||'').toLowerCase().includes(q)||
+    (f.artist||'').toLowerCase().includes(q)||
+    (f.album||'').toLowerCase().includes(q)
+  );
+}
+
+function mdRenderList(){
+  const wrap=document.getElementById('md-list-wrap');
+  const items=mdFilter();
+  if(!items.length){wrap.innerHTML='<div class="ml-empty">Sin archivos</div>';return}
+
+  if(mdCurTab==='image'){
+    wrap.innerHTML=`<div class="md-img-grid">${items.map((f,i)=>`
+      <div class="md-img-cell" onclick="mdLightbox(${i})">
+        <img src="/files/${mdEnc(f.rel)}" loading="lazy">
+      </div>`).join('')}</div>`;
+    window._mdItems=items;
+    return;
+  }
+
+  if(mdCurTab==='audio')mdQueue=items;
+  const icon=mdCurTab==='video'?'📺':'📃';
+  wrap.innerHTML=`<div class="md-list">${items.map((f,i)=>{
+    const playing=mdCurTab==='audio'&&mdQueue[mdIdx]===f;
+    const thumb=mdCurTab==='audio'
+      ?`<div class="md-thumb" onclick="mdEditMeta(${i})">${f.cover?`<img src="${f.cover}">`:'🎵'}</div>`
+      :`<div class="md-thumb" onclick="mdItemClick(${i})">${icon}</div>`;
+    const meta=mdCurTab==='audio'
+      ?(f.artist||'—')+(f.album?' · '+f.album:'')
+      :mdSize(f.size);
+    return`<div class="md-item${playing?' ml-item-connected':''}">
+      ${thumb}
+      <div class="md-info" onclick="mdItemClick(${i})">
+        <div class="md-name">${mdEsc(f.title||f.name)}</div>
+        <div class="md-meta">${mdEsc(meta)}</div>
+      </div>
+      <div class="md-actions">
+        <button class="ml-btn-sm ml-btn-danger" onclick="event.stopPropagation();mdDelete('${f.rel.replace(/'/g,"\\'")}',this)">🗑️</button>
+      </div>
+    </div>`;
+  }).join('')}</div>`;
+  window._mdItems=items;
+}
+
+window.mdItemClick=function(i){
+  const items=window._mdItems||[];
+  const f=items[i]; if(!f)return;
+  if(mdCurTab==='audio'){mdQueue=items;mdIdx=i;mdPlayEntry(f);}
+  else window.open('/files/'+mdEnc(f.rel),'_blank');
+};
+
+window.mdLightbox=function(startIdx){
+  const items=window._mdItems||[];
+  let cur=startIdx;
+  const lb=document.createElement('div');
+  lb.className='md-lightbox';
+  function render(){
+    const f=items[cur];
+    lb.innerHTML=`
+      <img src="/files/${mdEnc(f.rel)}">
+      <div class="md-lb-nav">
+        <button class="ml-btn-sm" id="lb-prev">◀</button>
+        <button class="ml-btn-sm ml-btn-danger" id="lb-del">🗑️ Borrar</button>
+        <button class="ml-btn-sm" id="lb-close">✕</button>
+        <button class="ml-btn-sm" id="lb-next">▶</button>
+      </div>`;
+    lb.querySelector('#lb-prev').onclick=()=>{cur=(cur-1+items.length)%items.length;render()};
+    lb.querySelector('#lb-next').onclick=()=>{cur=(cur+1)%items.length;render()};
+    lb.querySelector('#lb-close').onclick=()=>{
+      const root=document.fullscreenElement||document.body;
+      (root===document.body?document.body:root).contains(lb)
+        ?(root===document.body?document.body:root).removeChild(lb)
+        :document.body.removeChild(lb);
+    };
+    lb.querySelector('#lb-del').onclick=async()=>{
+      if(!confirm('¿Eliminar '+f.name+'?'))return;
+      await fetch('/api/media/file',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({rel:f.rel})});
+      mdAll=mdAll.filter(x=>x.rel!==f.rel);
+      items.splice(cur,1);
+      if(!items.length){
+        const root=document.fullscreenElement||document.body;
+        (root.contains(lb)?root:document.body).removeChild(lb);
+        mdRenderList();return;
+      }
+      cur=Math.min(cur,items.length-1);
+      render(); mdRenderList();
+    };
+  }
+  render();
+  const fsEl=document.fullscreenElement;
+  (fsEl||document.body).appendChild(lb);
+};
+
+window.mdEditMeta=function(i){
+  const items=window._mdItems||[];
+  const f=items[i]; if(!f)return;
+  let newCoverFile=null;
+  const ov=document.createElement('div');
+  ov.className='md-edit-overlay';
+  ov.innerHTML=`<div class="md-edit-box">
+    <div style="font-size:.83rem;margin-bottom:2px">✏️ Editar metadata</div>
+    <div class="md-edit-cover-wrap">
+      <div class="md-edit-cover" id="me-cov">${f.cover?`<img src="${f.cover}">`:'🎵'}</div>
+      <div class="md-edit-cover-hint">Toca la caratula<br>para cambiar imagen</div>
+    </div>
+    <input type="file" id="me-cov-input" accept="image/*" style="display:none">
+    ${['title','artist','album','year','genre'].map(k=>`
+    <div class="md-edit-field"><label>${k.charAt(0).toUpperCase()+k.slice(1)}</label>
+    <input id="me-${k}" value="${mdEsc(f[k]||'')}"></div>`).join('')}
+    <div class="md-edit-actions">
+      <button class="ml-btn-sm" id="me-cancel">Cancelar</button>
+      <button class="ml-btn-sm" id="me-save">💾 Guardar</button>
+    </div>
+  </div>`;
+  document.body.appendChild(ov);
+  ov.querySelector('#me-cov').onclick=()=>ov.querySelector('#me-cov-input').click();
+  ov.querySelector('#me-cov-input').onchange=e=>{
+    const file=e.target.files[0]; if(!file)return;
+    newCoverFile=file;
+    ov.querySelector('#me-cov').innerHTML=`<img src="${URL.createObjectURL(file)}">`;
+  };
+  ov.querySelector('#me-cancel').onclick=()=>document.body.removeChild(ov);
+  ov.querySelector('#me-save').onclick=async()=>{
+    const fd=new FormData();
+    fd.append('rel',f.rel);
+    ['title','artist','album','year','genre'].forEach(k=>fd.append(k,ov.querySelector('#me-'+k).value));
+    if(newCoverFile)fd.append('cover',newCoverFile);
+    const r=await fetch('/api/media/meta',{method:'PUT',body:fd});
+    const d=await r.json();
+    ['title','artist','album','year','genre'].forEach(k=>f[k]=ov.querySelector('#me-'+k).value||null);
+    if(d.cover)f.cover=d.cover;
+    document.body.removeChild(ov);
+    mdRenderList();
+    if(mdQueue[mdIdx]===f){
+      document.getElementById('md-ptitle').textContent=f.title||f.name;
+      document.getElementById('md-partist').textContent=f.artist||'—';
+      document.getElementById('md-viz-bg').style.backgroundImage=f.cover?`url(${f.cover})`:'none';
+    }
+  };
+};
+
+window.mdDelete=async function(rel,btn){
+  if(!confirm('¿Eliminar '+rel+'?'))return;
+  btn.disabled=true;
+  await fetch('/api/media/file',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({rel})});
+  mdAll=mdAll.filter(f=>f.rel!==rel);
+  mdRenderList();
+};
+
+window.mdScan=async function(){
+  document.getElementById('md-list-wrap').innerHTML='<div class="ml-empty">⌛ Escaneando...</div>';
+  await fetch('/api/media/scan',{method:'POST'});
+  await mdLoad();
+};
+
+async function mdLoad(){
+  const r=await fetch('/api/media');
+  mdAll=await r.json();
+  mdRenderList();
+}
+
+document.getElementById('md-search').addEventListener('input',mdRenderList);
+mdLoad();
+</script>

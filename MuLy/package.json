@@ -1,0 +1,16 @@
+{
+  "engines": {
+    "node": ">=18"
+  },
+  "volta": {
+    "node": "24.13.1"
+  },
+  "dependencies": {
+    "amule-ec-node": "github:got3nks/amule-ec-node",
+    "express": "^5.2.1",
+    "irc-framework": "^4.14.0",
+    "ws": "^8.19.0",
+    "node-id3": "^0.2.9",
+    "multer": "^1.4.5-lts.1"
+  }
+}
