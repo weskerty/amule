@@ -1,7 +1,7 @@
 <div style="text-align:center;"
 <p align="center">
 <img src="web/ICON.png" alt="Muly" width="170">
-<h1 align="center">aMuleD</h1>
+<h1 align="center">MuLy - aMuleD</h1>
 1. aMule for All Platforms. Unify all efforts into aMuleD.
 Linux x64 & ARM64/v7 is compatible with Termux Debian and also with Windows WSL.
   <table>
@@ -33,16 +33,21 @@ Reuse, don't throw away.
 https://github.com/user-attachments/assets/a9deafd4-17b3-4409-a5fb-80e1b22664a0
 
 
+</div>
 
 
 ## Install 
  
-### Termux
+### Android 
+Install [Termux Here↗️](https://github.com/termux/termux-app/releases) 
+
+Open Termux and Paste; 
 
 ```
 curl -fsSL https://raw.githubusercontent.com/weskerty/aMuleD.bin/refs/heads/master/Util/Scripts/TermuxI.sh | bash
 
 ```
+Allow Permissions
 
 
 ### Windows
@@ -70,10 +75,11 @@ Alternatively, you can install the official versions of aMule from official repo
 
 #### Arch Linux
 
-`chaotic-aur/amule-git 2.3.3.r60.9ceeaa68b-1.1 (6.7 MiB 18.9 MiB) 
-    Client for the eD2k and Kad networks                                      extra/amule 1:2.3.3-10 (5.1 MiB 20.1 MiB)
+`chaotic-aur/amule-git
+    Client for the eD2k and Kad networks                                      
+extra/amule (OldVersion)
     An eMule-like client for ed2k p2p network`
-27/2/26
+
 
 It's easy to install with ChaoticAUR.
 
