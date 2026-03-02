@@ -1,28 +1,62 @@
 #!/bin/bash
 
 cd repo || exit 1
-
 git fetch origin
 git reset --hard origin/master
 
-chmod -r +x Util/aMuleD.AppImage
+chmod +x Util/aMuleD.AppImage/*.AppImage Util/aMuleD.AppImage/*.exe 2>/dev/null
 
-#detectar por sistema para ejecutar.
-amuled-arm64.AppImage &
-amuled-armv7.AppImage &
-amuled-x64.AppImage &
-amuled-x64.exe &
-amuled-arm64.exe &
+detect_arch() {
+  case "$(uname -m)" in
+    aarch64|arm64) echo "arm64" ;;
+    armv7*) echo "armv7" ;;
+    *) echo "x64" ;;
+  esac
+}
 
+detect_os() {
+  if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "cygwin" || -n "$WINDIR" ]]; then
+    echo "win"
+  else
+    echo "linux"
+  fi
+}
 
-#fail descompress?
-mkdir -p ~/home/amuled/
-./amuled-arch.ext --appimage-extract
-./home/~/amuled/squashfs-root/usr/bin/amuled & 
+OS=$(detect_os)
+ARCH=$(detect_arch)
+
+if [[ "$OS" == "win" ]]; then
+  case "$(echo $PROCESSOR_ARCHITECTURE | tr '[:upper:]' '[:lower:]')" in
+    arm64) ARCH="arm64" ;;
+    *) ARCH="x64" ;;
+  esac
+  BIN="Util/aMuleD.AppImage/amuled-${ARCH}.exe"
+else
+  BIN="Util/aMuleD.AppImage/amuled-${ARCH}.AppImage"
+fi
+
+run_fallback() {
+  local bin="$1"
+  local extract_dir="../home/amuled"
+  mkdir -p "$extract_dir"
+  "$bin" --appimage-extract-and-run 2>/dev/null || \
+  (cd "$extract_dir" && "$OLDPWD/$bin" --appimage-extract && ./squashfs-root/usr/bin/amuled &)
+}
+
+if [[ "$OS" == "win" ]]; then
+  "$BIN" --full-daemon || { echo "Error $BIN"; exit 1; }
+else
+  "$BIN" --full-daemon || run_fallback "$BIN"
+fi
 
 cd MuLy || exit 1
-#volta exist? 
-/opt/aMuleD.bin/home/.volta/bin/npm install --force && node server.js
 
-#no exist? 
-npm install --force && node server.js
+VOLTA_NPM="/opt/aMuleD.bin/home/.volta/bin/npm"
+
+if [[ -x "$VOLTA_NPM" ]]; then
+  "$VOLTA_NPM" install --force && node server.js
+elif command -v volta &>/dev/null; then
+  volta run npm install --force && node server.js
+else
+  npm install --force && node server.js
+fi
