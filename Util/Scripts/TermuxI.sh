@@ -88,7 +88,7 @@ ln -sfn /sdcard/Download/aMule repo/MuLy/Archivos
 
 echo "[D] Actualizando"
 cd repo
-cp -r .aMule ~/.aMule
+#cp -r .aMule ~/.aMule
 chmod +x START.sh
 ./START.sh &
 sleep 20
