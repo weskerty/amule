@@ -7,7 +7,7 @@ termux-wake-lock
 
 echo "Concede permiso al almacenamiento"
 sleep 5
-termux-setup-storage
+printf 'y\y' | termux-setup-storage
 
 echo "Actualizando, Tardara unos Minutos"
 pkg install -y tur-repo x11-repo
