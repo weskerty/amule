@@ -148,6 +148,8 @@ dialog button:hover { background: rgba(255,80,80,0.45); }
 .ml-item:last-child { border-bottom: none; padding-bottom: 0; }
 .ml-item:first-child { padding-top: 0; }
 .ml-item-connected { border-left: 2px solid rgba(80,220,120,0.6); padding-left: 10px; }
+.ml-item-present   { border-left: 2px solid rgba(80,220,120,0.6); padding-left: 10px; }
+.ml-item-currentdl { border-left: 2px solid rgba(255,190,50,0.7); padding-left: 10px; }
 
 .ml-logo-img { 
   display: block; 

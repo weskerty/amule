@@ -73,13 +73,9 @@
         </div>
       </div>
       <div id="dl-completed" style="display:none">
-        <div class="ml-card" id="uploading-card" style="display:none">
-          <div class="ml-count">📤 Subiendo</div>
-          <div id="uploading-wrap"></div>
-        </div>
         <div class="ml-card">
           <div style="margin-bottom:12px">
-            <button class="ml-btn-sm" onclick="reloadShared()">🔄 Recargar</button>
+            <button class="ml-btn-sm ml-btn-danger" id="btn-clear-completed" onclick="clearCompleted()">🧹 Limpiar completados</button>
           </div>
           <div id="shared-wrap"><div class="ml-empty">Sin archivos</div></div>
         </div>
@@ -92,7 +88,9 @@
           <button class="ml-config-item" onclick="openSub('stats')"><span class="ci-ico">📊</span><span class="ci-lbl">Stats</span></button>
           <button class="ml-config-item" onclick="openSub('servers')"><span class="ci-ico">🌐</span><span class="ci-lbl">Servers</span></button>
           <button class="ml-config-item" onclick="openSub('cats')"><span class="ci-ico">🏷️</span><span class="ci-lbl">Categorias</span></button>
+          <button class="ml-config-item" onclick="openSub('uploading')"><span class="ci-ico">📤</span><span class="ci-lbl">Subiendo</span></button>
           <button class="ml-config-item" onclick="openSub('theme')"><span class="ci-ico">🎨</span><span class="ci-lbl">Tema</span></button>
+          <button class="ml-config-item" onclick="openSub('amule')"><span class="ci-ico">🫏</span><span class="ci-lbl">aMule</span></button>
           <button class="ml-config-item" onclick="openSub('about.html')"><span class="ci-ico">ℹ️</span><span class="ci-lbl">About</span></button>
         </div>
       </div>
@@ -131,6 +129,7 @@ const PK = 'muly_pw', TK = 'muly_theme';
 let searchResults = [], pollTimer = null, pollCount = 0, isSearching = false;
 let dlTimer = null, connectedSrv = null, srvList = [];
 let curPanel = 'search', curDlTab = 'downloading';
+let knownHashes = new Set(), dlHashes = new Set();
 
 function toast(msg) {
   const t = $('toast');
@@ -182,7 +181,7 @@ async function loadPanel(url, target) {
   } catch(e) { inner.innerHTML = '<div class="ml-empty">Error: '+esc(e.message)+'</div>'; }
 }
 
-const subLoaders = { stats: loadStats, servers: loadServers, cats: loadCats, theme: loadTheme };
+const subLoaders = { stats: loadStats, servers: loadServers, cats: loadCats, theme: loadTheme, amule: loadAmulePrefs, uploading: loadUploading };
 function openSub(name) {
   $('subpage-inner').innerHTML = '<div class="ml-empty">⌛ Cargando...</div>';
   document.head.querySelectorAll('style[data-panel]').forEach(s => s.remove());
@@ -231,7 +230,10 @@ document.querySelectorAll('.ml-navbtn').forEach(btn => {
       $('panel-media').dataset.loaded = '1';
       loadPanel('media.html', $('panel-media'));
     }
-    if (curPanel === 'downloads') { loadDownloads(); dlTimer = setInterval(loadDownloads, 3000); }
+    if (curPanel === 'downloads') {
+      switchDlTab(curDlTab);
+      dlTimer = setInterval(() => { loadDownloads(); if (curDlTab === 'completed') loadShared(); }, 3000);
+    }
     if (curPanel === 'config') { loadSrvInfo(); loadConnState(); }
     if (curPanel === 'irc' && !$('panel-irc').dataset.loaded) {
       $('panel-irc').dataset.loaded = '1';
@@ -266,13 +268,34 @@ async function doSearch() {
   $('results-wrap').innerHTML = '<div class="ml-empty">⌛ Buscando...</div>';
   $('results-count').textContent = 'Buscando...';
   $('filter-input').value = '';
+  searchResults = [];
   try {
     await api('POST', '/api/search/start', { query: q, type: $('search-type').value });
+    if (!knownHashes.size && !dlHashes.size) loadHashesInBackground();
     isSearching = true; resumePolling();
   } catch(e) { err(e.message); $('results-wrap').innerHTML = '<div class="ml-empty">Error</div>'; }
   btn.disabled = false; btn.textContent = 'Buscar';
 }
-function applyResults(data) { searchResults = Array.isArray(data) ? data : []; renderResults(); }
+async function loadHashesInBackground() {
+  try {
+    const [shared, downloads] = await Promise.all([
+      api('GET', '/api/shared').catch(() => []),
+      api('GET', '/api/downloads').catch(() => [])
+    ]);
+    knownHashes = new Set(shared.map(f => f.fileHash).filter(Boolean));
+    dlHashes = new Set(downloads.map(f => f.fileHash).filter(Boolean));
+  } catch(e) {}
+}
+function applyResults(data) {
+  const incoming = Array.isArray(data) ? data : [];
+  if (!incoming.length && isSearching) return;
+  searchResults = incoming.map(r => ({
+    ...r,
+    present: knownHashes.has(r.fileHash),
+    currentDl: r.currentDl || dlHashes.has(r.fileHash)
+  }));
+  renderResults();
+}
 function renderResults() {
   const ext = ($('filter-input').value || '').trim().toLowerCase();
   const list = ext ? searchResults.filter(f => f.fileName?.toLowerCase().includes(ext)) : searchResults;
@@ -283,13 +306,19 @@ function renderResults() {
     $('results-wrap').innerHTML = '<div class="ml-empty">'+(ext?'Sin resultados para ese filtro':'Sin resultados aun')+'</div>';
     return;
   }
-  $('results-wrap').innerHTML = list.map(f =>
-    `<div class="ml-item">
+  $('results-wrap').innerHTML = list.map(f => {
+    const cls = f.present ? ' ml-item-present' : f.currentDl ? ' ml-item-currentdl' : '';
+    const btn = f.present
+      ? `<button class="ml-btn-sm" disabled>✅ Disponible</button>`
+      : f.currentDl
+        ? `<button class="ml-btn-sm" disabled>⬇️ Descargando</button>`
+        : `<button class="ml-btn-sm" onclick="downloadFile('${esc(f.fileHash)}',this)">⬇️ Descargar</button>`;
+    return `<div class="ml-item${cls}">
       <div class="ml-item-name">${esc(f.fileName)}</div>
       <div class="ml-item-meta">📦${fmtSize(f.fileSize)} &nbsp;🌱${f.sourceCount||'—'}</div>
-      <div class="ml-item-actions"><button class="ml-btn-sm" onclick="downloadFile('${esc(f.fileHash)}',this)">⬇️ Descargar</button></div>
-    </div>`
-  ).join('');
+      <div class="ml-item-actions">${btn}</div>
+    </div>`;
+  }).join('');
 }
 $('search-btn').onclick = doSearch;
 $('search-input').addEventListener('keydown', e => { if(e.key==='Enter') doSearch(); });
@@ -297,16 +326,23 @@ $('filter-input').oninput = renderResults;
 
 async function downloadFile(hash, btn) {
   btn.disabled = true; btn.textContent = '⌛';
-  try { await api('POST', '/api/download', { hash }); btn.textContent = '✓'; toast('Descarga iniciada'); }
-  catch(e) { btn.disabled = false; btn.textContent = '⬇️ Descargar'; err(e.message); }
+  try {
+    await api('POST', '/api/download', { hash });
+    toast('Descarga iniciada');
+    dlHashes.add(hash);
+    const r = searchResults.find(f => f.fileHash === hash);
+    if (r) { r.currentDl = true; renderResults(); }
+  } catch(e) { btn.disabled = false; btn.textContent = '⬇️ Descargar'; err(e.message); }
 }
 
 async function loadDownloads() {
+  const wrap = $('downloads-wrap');
   try {
     const data = await api('GET', '/api/downloads');
+    dlHashes = new Set(data.map(f => f.fileHash).filter(Boolean));
     $('dl-count').textContent = data.length+' archivo'+(data.length !== 1 ? 's' : '');
-    if (!data.length) { $('downloads-wrap').innerHTML = '<div class="ml-empty">Sin descargas activas</div>'; return; }
-    $('downloads-wrap').innerHTML = data.map(f => {
+    if (!data.length) { wrap.innerHTML = '<div class="ml-empty">Sin descargas activas</div>'; return; }
+    wrap.innerHTML = data.map(f => {
       const pct = parseFloat(f.progress || 0);
       return `<div class="ml-item">
         <div class="ml-item-name">${esc(f.fileName)}</div>
@@ -319,7 +355,7 @@ async function loadDownloads() {
         </div>
       </div>`;
     }).join('');
-  } catch(e) { err(e.message); }
+  } catch(e) { if (!wrap.querySelector('.ml-item')) wrap.innerHTML = '<div class="ml-empty">Error cargando</div>'; }
 }
 async function dlAction(action, hash, btn) {
   btn.disabled = true;
@@ -336,37 +372,38 @@ function switchDlTab(tab) {
   $('tab-completed').classList.toggle('active', tab === 'completed');
   $('dl-downloading').style.display = tab === 'downloading' ? '' : 'none';
   $('dl-completed').style.display = tab === 'completed' ? '' : 'none';
-  if (tab === 'completed') { loadShared(); loadUploading(); }
+  if (tab === 'downloading') loadDownloads();
+  if (tab === 'completed') loadShared();
 }
 
 async function loadShared() {
-  $('shared-wrap').innerHTML = '<div class="ml-empty">⌛ Cargando...</div>';
+  const wrap = $('shared-wrap');
+  const hadContent = wrap.querySelector('.ml-item');
+  if (!hadContent) wrap.innerHTML = '<div class="ml-empty">⌛ Cargando...</div>';
   try {
     const data = await api('GET', '/api/shared');
-    $('shared-wrap').innerHTML = data.length
+    knownHashes = new Set(data.map(f => f.fileHash).filter(Boolean));
+    wrap.innerHTML = data.length
       ? data.map(f => `<div class="ml-item">
           <div class="ml-item-name">${esc(f.fileName)}</div>
           <div class="ml-item-meta">📦${fmtSize(f.fileSize)} &nbsp;📤${fmtSize(f.transferred)} &nbsp;🤲${f.reqCount||'0'}</div>
         </div>`).join('')
       : '<div class="ml-empty">Sin archivos</div>';
-  } catch(e) { $('shared-wrap').innerHTML = '<div class="ml-empty">Error</div>'; err(e.message); }
+  } catch(e) { if (!hadContent) wrap.innerHTML = '<div class="ml-empty">Error</div>'; }
 }
-async function reloadShared() {
-  try { await api('POST', '/api/shared/reload'); toast('Recargado'); loadShared(); } catch(e) { err(e.message); }
-}
-
 async function loadUploading() {
+  $('subpage-inner').innerHTML = '<div class="ml-empty">⌛ Cargando...</div>';
   try {
-    const raw = await api('GET', '/api/uploads');
-    const entries = Array.isArray(raw) ? raw : Object.values(raw||{}).filter(v => v && typeof v === 'object');
-    const card = $('uploading-card');
-    if (!entries.length) { card.style.display = 'none'; return; }
-    card.style.display = '';
-    $('uploading-wrap').innerHTML = entries.map(f => `<div class="ml-item">
-      <div class="ml-item-name">${esc(f.EC_TAG_PARTFILE_NAME||f.fileName||'—')}</div>
-      <div class="ml-item-meta">📦${fmtSize(f.EC_TAG_PARTFILE_SIZE_FULL||f.fileSize)} &nbsp;⚡${fmtSize(f.EC_TAG_PARTFILE_SPEED||f.speed)}/s</div>
-    </div>`).join('');
-  } catch(e) { $('uploading-card').style.display = 'none'; }
+    const entries = await api('GET', '/api/uploads');
+    $('subpage-inner').innerHTML = '<div class="ml-card">'
+      + (Array.isArray(entries) && entries.length
+        ? entries.map(f => `<div class="ml-item">
+            <div class="ml-item-name">${esc(f.fileName||'—')}</div>
+            <div class="ml-item-meta">📦${fmtSize(f.fileSize)} &nbsp;⚡${fmtSize(f.speed)}/s</div>
+          </div>`).join('')
+        : '<div class="ml-empty">Sin archivos subiendo</div>')
+      + '</div>';
+  } catch(e) { $('subpage-inner').innerHTML = '<div class="ml-empty">Error</div>'; err(e.message); }
 }
 
 async function loadSrvInfo() {
@@ -518,11 +555,64 @@ function saveTheme() {
   localStorage.setItem(TK, JSON.stringify(t));
   applyTheme(t); toast('Tema guardado');
 }
-function resetTheme() {
-  localStorage.removeItem(TK);
-  document.body.style.backgroundImage = '';
-  ['theme-gfont','theme-font','theme-body-font'].forEach(id => { const el = document.getElementById(id); if (el) el.remove(); });
-  toast('Tema restablecido'); loadTheme();
+async function clearCompleted() {
+  const btn = $('btn-clear-completed'); btn.disabled = true;
+  try { await api('POST', '/api/downloads/clear-completed'); toast('Completados eliminados'); loadShared(); }
+  catch(e) { err(e.message); }
+  btn.disabled = false;
+}
+
+async function loadAmulePrefs() {
+  $('subpage-inner').innerHTML = '<div class="ml-empty">⌛ Cargando...</div>';
+  try {
+    const p = await api('GET', '/api/preferences');
+    $('subpage-inner').innerHTML = `<div class="ml-card">
+      <div class="ml-item">
+        <div class="ml-item-name">Nick</div>
+        <input class="ml-search-input" id="ap-nick" style="width:100%;margin-top:6px" value="${esc(p.nick||'')}" disabled>
+      </div>
+      <div class="ml-item">
+        <div class="ml-item-name">Max Download (KB/s · 0 = sin limite)</div>
+        <input class="ml-search-input" id="ap-dl" type="number" min="0" style="width:100%;margin-top:6px" value="${p.maxDownload??0}">
+      </div>
+      <div class="ml-item">
+        <div class="ml-item-name">Max Upload (KB/s · 0 = sin limite)</div>
+        <input class="ml-search-input" id="ap-ul" type="number" min="0" style="width:100%;margin-top:6px" value="${p.maxUpload??0}">
+      </div>
+      <div class="ml-item">
+        <div class="ml-item-name">Puerto TCP</div>
+        <input class="ml-search-input" id="ap-tcp" type="number" style="width:100%;margin-top:6px" value="${p.tcpPort??''}" disabled>
+      </div>
+      <div class="ml-item">
+        <div class="ml-item-name">Puerto UDP</div>
+        <input class="ml-search-input" id="ap-udp" type="number" style="width:100%;margin-top:6px" value="${p.udpPort??''}" disabled>
+      </div>
+      <div class="ml-item">
+        <div class="ml-item-name">Directorio Entrada</div>
+        <input class="ml-search-input" id="ap-inc" style="width:100%;margin-top:6px" value="${esc(p.incomingDir||'')}" disabled>
+      </div>
+      <div class="ml-item">
+        <div class="ml-item-name">Directorio Temp</div>
+        <input class="ml-search-input" id="ap-tmp" style="width:100%;margin-top:6px" value="${esc(p.tempDir||'')}" disabled>
+      </div>
+      <div class="ml-item">
+        <div class="ml-item-name">Redes</div>
+        <div class="ml-item-meta" style="margin-top:6px">eD2K: ${p.ed2kEnabled?'✅':'❌'} &nbsp; Kademlia: ${p.kadEnabled?'✅':'❌'}</div>
+      </div>
+      <div class="ml-item-actions" style="margin-top:14px">
+        <button class="ml-btn-sm" onclick="saveAmulePrefs()">💾 Guardar</button>
+      </div>
+    </div>`;
+  } catch(e) { $('subpage-inner').innerHTML = '<div class="ml-empty">Error</div>'; err(e.message); }
+}
+
+async function saveAmulePrefs() {
+  const body = {
+    maxDownload: parseInt($('ap-dl').value) || 0,
+    maxUpload: parseInt($('ap-ul').value) || 0
+  };
+  try { await api('POST', '/api/preferences', body); toast('Guardado'); }
+  catch(e) { err(e.message); }
 }
 </script>
 </body>

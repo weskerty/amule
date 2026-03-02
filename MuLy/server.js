@@ -266,7 +266,17 @@ app.post('/api/shared/reload', safe(async (req, res) => {
 
 app.get('/api/uploads', safe(async (req, res) => {
   if (nc(res)) return;
-  res.json(await cl.getUploadingQueue());
+  const resp = await cl.session.sendPacket(EC_OPCODES.EC_OP_GET_ULOAD_QUEUE, []);
+  const list = (resp.tags || []).map(tag => {
+    const gc = id => tag.children?.find(c => c.tagId === id)?.humanValue;
+    return {
+      fileName: gc(EC_TAGS.EC_TAG_PARTFILE_NAME),
+      fileHash: gc(EC_TAGS.EC_TAG_PARTFILE_HASH),
+      fileSize: gc(EC_TAGS.EC_TAG_PARTFILE_SIZE_FULL),
+      speed: gc(EC_TAGS.EC_TAG_PARTFILE_SPEED)
+    };
+  });
+  res.json(list);
 }));
 
 app.post('/api/search/start', safe(async (req, res) => {
@@ -310,6 +320,25 @@ app.post('/api/categories/assign', safe(async (req, res) => {
   if (nc(res)) return;
   const { hash, categoryId } = req.body;
   res.json({ ok: await cl.setFileCategory(hash, categoryId) });
+}));
+
+app.get('/api/preferences', safe(async (req, res) => {
+  if (nc(res)) return;
+  res.json(await cl.getPreferences());
+}));
+
+app.post('/api/preferences', safe(async (req, res) => {
+  if (nc(res)) return;
+  const { maxDownload, maxUpload } = req.body;
+  const results = {};
+  if (maxDownload !== undefined) results.maxDownload = await cl.setMaxDownload(parseInt(maxDownload));
+  if (maxUpload !== undefined) results.maxUpload = await cl.setMaxUpload(parseInt(maxUpload));
+  res.json({ ok: true, ...results });
+}));
+
+app.post('/api/downloads/clear-completed', safe(async (req, res) => {
+  if (nc(res)) return;
+  res.json({ ok: await cl.clearCompleted() });
 }));
 
 app.get('/api/log', safe(async (req, res) => {
