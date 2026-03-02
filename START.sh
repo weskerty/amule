@@ -1,6 +1,6 @@
 #!/bin/bash
 
-cd repo || exit 1
+cd repo
 git fetch origin
 git reset --hard origin/master
 
