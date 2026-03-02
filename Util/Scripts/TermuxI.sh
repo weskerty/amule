@@ -64,7 +64,7 @@ while [ $timeout -gt 0 ]; do
 done
 
 echo -e "\n${GREEN}Iniciando aMuleD...${NC}"
-proot-distro login debian -- bash -c 'cd repo 2>/dev/null || true && chmod +x START.sh && /data/data/com.termux/files/usr/bin/termux-open http://localhost:8000 && ./START.sh'
+proot-distro login debian -- bash -c 'cd repo 2>/dev/null || true && chmod +x START.sh && (sleep 20 && /data/data/com.termux/files/usr/bin/termux-open http://localhost:8000) && ./START.sh'
 
 
 EOF
